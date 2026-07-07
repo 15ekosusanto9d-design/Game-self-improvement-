@@ -1,0 +1,2457 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Life RPG</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  :root{
+    --bg: #0B1929;
+    --bg-panel: #0F2239;
+    --bg-panel-light: #132B45;
+    --bg-deep: #06111E;
+    --cyan: #0EA5E9;
+    --cyan-light: #38BDF8;
+    --cyan-glow: #67E8F9;
+    --teal: #2DD4BF;
+    --teal-light: #5EEAD4;
+    --amber: #FCD34D;
+    --amber-dark: #F59E0B;
+    --green: #4ADE80;
+    --green-light: #86EFAC;
+    --purple: #A78BFA;
+    --purple-light: #C4B5FD;
+    --orange: #FB923C;
+    --orange-light: #FDBA74;
+    --pink: #F472B6;
+    --pink-light: #F9A8D4;
+    --danger: #F87171;
+    --danger-dark: #EF4444;
+    --text: #C8E6F5;
+    --muted: #6A9BBF;
+    --border: #1E4068;
+    --border-light: #2A5585;
+    /* stat colors */
+    --stat-body: #FB923C;
+    --stat-mind: #38BDF8;
+    --stat-career: #A78BFA;
+    --stat-social: #F472B6;
+    --stat-discipline: #FCD34D;
+    /* legacy aliases tetap ada agar tidak ada yang patah */
+    --gold: #FCD34D;
+    --bronze: #F59E0B;
+    --emerald: #2DD4BF;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background: radial-gradient(ellipse at top, #0D2137 0%, #0B1929 50%, #07111E 100%);
+    color: var(--text);
+    font-family: 'Spectral', Georgia, serif;
+    min-height: 100vh;
+    padding: 14px 10px 90px;
+  }
+  .display{ font-family: 'Cinzel', serif; letter-spacing: 0.02em; }
+  .container{ max-width: 600px; margin: 0 auto; width: 100%; }
+
+  .header{
+    text-align: center;
+    margin-bottom: 14px;
+  }
+  .header h1{
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--cyan-light);
+    text-shadow: 0 0 20px rgba(56,189,248,0.35);
+  }
+  .header p{ color: var(--muted); font-size: 12px; margin-top: 3px; }
+
+  .panel{
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  /* Loading state */
+  .loading-screen{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height: 60vh; gap: 16px;
+  }
+  .loading-screen .spinner{
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 3px solid var(--border); border-top-color: var(--gold);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  .loading-screen p{ color: var(--muted); font-size: 14px; }
+
+  /* Character Card */
+  .char-card{
+    background: linear-gradient(145deg, var(--bg-panel) 0%, #0C1E33 100%);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+  .char-card::before{
+    content:'';
+    position:absolute; top:-40%; left:-10%;
+    width:180px; height:180px;
+    background: radial-gradient(circle, rgba(14,165,233,0.12) 0%, transparent 70%);
+    pointer-events:none;
+  }
+  .char-top{
+    display:flex; align-items:center; gap:12px;
+    margin-bottom: 14px;
+  }
+  .avatar-circle{
+    width: 68px; height: 68px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #132B45, #06111E);
+    border: 2px solid var(--cyan);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 30px;
+    box-shadow: 0 0 20px rgba(14,165,233,0.3), inset 0 0 10px rgba(0,0,0,0.5);
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+  }
+  .avatar-circle.bump{ animation: avatarBump 0.5s ease; }
+  @keyframes avatarBump{
+    0%{ transform: scale(1); }
+    40%{ transform: scale(1.18); }
+    100%{ transform: scale(1); }
+  }
+  .char-info{ flex:1; min-width:0; }
+  .char-name-row{
+    display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;
+  }
+  .char-name{
+    font-family:'Cinzel',serif; font-size:16px; font-weight:700; color:var(--text);
+  }
+  .char-title{
+    font-size: 11px; color: var(--cyan-light); font-style: italic;
+  }
+  .char-level-row{
+    display:flex; align-items:center; gap:7px; margin-top:5px;
+  }
+  .level-badge{
+    background: linear-gradient(135deg, var(--cyan), var(--cyan-light)); color: #06111E;
+    font-family:'Cinzel',serif; font-weight:700; font-size:11px;
+    padding: 2px 9px; border-radius: 20px;
+  }
+  .coin-badge{
+    display:flex; align-items:center; gap:4px;
+    font-size: 12px; color: var(--amber); font-weight:600;
+  }
+
+  .xp-bar-wrap{ margin-top: 8px; }
+  .xp-bar-track{
+    width:100%; height:9px; background: #06111E;
+    border-radius: 6px; overflow:hidden; border: 1px solid var(--border);
+  }
+  .xp-bar-fill{
+    height:100%; border-radius:6px;
+    background: linear-gradient(90deg, var(--cyan), var(--cyan-light), var(--cyan-glow));
+    transition: width 0.6s cubic-bezier(.22,1,.36,1);
+    box-shadow: 0 0 8px rgba(56,189,248,0.6);
+  }
+  .xp-bar-label{
+    display:flex; justify-content:space-between;
+    font-size: 10px; color: var(--muted); margin-top: 3px;
+  }
+
+  .stats-grid{
+    display:grid; grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  .stat-item{
+    background: rgba(14,165,233,0.04);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 8px 10px;
+  }
+  .stat-head{
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:11px; margin-bottom:5px;
+  }
+  .stat-head .label{ display:flex; align-items:center; gap:5px; color:var(--text); }
+  .stat-head .lvl{ color: var(--muted); font-size:10px; font-weight:600; }
+  .stat-bar-track{
+    width:100%; height:5px; background:var(--bg-deep); border-radius:4px; overflow:hidden;
+  }
+  .stat-bar-fill{ height:100%; border-radius:4px; transition: width 0.6s cubic-bezier(.22,1,.36,1); }
+
+  .streak-row{
+    display:flex; align-items:center; gap:7px; margin-top:12px;
+    font-size:12px; color: var(--muted);
+  }
+  .streak-flame{ color: var(--danger); font-size:14px; }
+
+  /* Quest Section */
+  .section-title{
+    font-family:'Cinzel',serif; font-size:13px; color:var(--gold);
+    margin-bottom:10px; display:flex; align-items:center; gap:7px;
+  }
+  .quest-list{ display:flex; flex-direction:column; gap:9px; }
+  .quest-card{
+    display:flex; align-items:center; gap:10px;
+    background: rgba(0,0,0,0.18);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 12px;
+    transition: all 0.25s ease;
+  }
+  .quest-card.done{
+    opacity: 0.5;
+    background: rgba(79,120,97,0.08);
+    border-color: rgba(79,120,97,0.3);
+  }
+  .quest-check{
+    width: 28px; height:28px; border-radius:50%;
+    border: 2px solid var(--bronze);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0; font-size:14px;
+    background: transparent;
+    transition: all 0.2s ease;
+  }
+  .quest-check:hover{ border-color: var(--gold); }
+  .quest-check.checked{
+    background: var(--teal); border-color: var(--teal); color:white;
+  }
+  .quest-body{ flex:1; min-width:0; }
+  .quest-title{ font-size:13px; color:var(--text); }
+  .quest-title.done{ text-decoration: line-through; color: var(--muted); }
+  .quest-meta{
+    display:flex; gap:7px; margin-top:3px; font-size:10px; color:var(--muted);
+    flex-wrap:wrap;
+  }
+  .quest-tag{
+    padding: 1px 6px; border-radius: 10px; font-size:9px;
+    border: 1px solid var(--border);
+  }
+  .quest-reward{ font-size:11px; color: var(--gold); white-space:nowrap; }
+  .quest-del{
+    background:none; border:none; color: var(--muted); cursor:pointer;
+    font-size: 18px; padding: 4px 5px; flex-shrink:0; opacity:0.5;
+    line-height:1;
+  }
+  .quest-del:hover{ opacity:1; color: var(--danger); }
+
+  .add-quest-btn{
+    width:100%; margin-top:10px;
+    background: transparent; border: 1.5px dashed var(--border);
+    color: var(--muted); padding: 11px; border-radius:10px;
+    cursor:pointer; font-size:13px; font-family:'Spectral',serif;
+    transition: all 0.2s ease;
+  }
+  .add-quest-btn:hover{ border-color: var(--cyan-light); color: var(--cyan-light); }
+
+  /* Modal — full width di mobile */
+  .modal-overlay{
+    position:fixed; inset:0; background: rgba(0,0,0,0.7);
+    display:flex; align-items:flex-end; justify-content:center;
+    padding: 0; z-index: 100;
+  }
+  .modal-box{
+    background: var(--bg-panel-light); border:1px solid var(--border);
+    border-radius: 16px 16px 0 0; padding: 20px 16px 32px;
+    width:100%; max-width: 600px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-box h3{ font-family:'Cinzel',serif; color:var(--gold); margin-bottom:14px; font-size:15px; }
+  .form-group{ margin-bottom:11px; }
+  .form-group label{ font-size:11px; color:var(--muted); display:block; margin-bottom:4px; }
+  .form-group input, .form-group select{
+    width:100%; background:#06111E; border:1px solid var(--border);
+    color:var(--text); padding:10px 11px; border-radius:8px; font-size:15px;
+    font-family:'Spectral',serif;
+  }
+  .form-group input:focus, .form-group select:focus{ outline:1px solid var(--gold); }
+  .modal-actions{ display:flex; gap:10px; margin-top:16px; }
+  .btn{
+    flex:1; padding:12px; border-radius:10px; cursor:pointer;
+    font-size:14px; font-weight:600; border:none; font-family:'Spectral',serif;
+  }
+  .btn-primary{ background: var(--cyan); color:#06111E; }
+  .btn-secondary{ background:transparent; border:1px solid var(--border); color:var(--muted); }
+
+  /* Toast notification */
+  .toast-wrap{
+    position: fixed; top: 12px; left:50%; transform: translateX(-50%);
+    z-index: 200; display:flex; flex-direction:column; gap:8px;
+    width: calc(100% - 20px); max-width: 400px;
+  }
+  .toast{
+    background: linear-gradient(135deg, #0F2A3F, #0B1D2E);
+    border: 1px solid var(--gold);
+    border-radius: 12px; padding: 12px 14px;
+    display:flex; align-items:center; gap:10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5), 0 0 20px rgba(212,162,76,0.15);
+    animation: toastIn 0.35s ease;
+    font-size: 13px;
+  }
+  .toast.levelup{
+    background: linear-gradient(135deg, #132B45, #0A1E30);
+  }
+  @keyframes toastIn{
+    from{ opacity:0; transform: translateY(-10px); }
+    to{ opacity:1; transform: translateY(0); }
+  }
+  .toast-icon{ font-size: 20px; flex-shrink:0; }
+  .toast-text{ flex:1; }
+  .toast-text .main{ color: var(--text); font-size:13px; }
+  .toast-text .sub{ color: var(--gold); font-size:10px; margin-top:2px; }
+
+  /* Tab Navigation — sticky di bawah */
+  .tab-nav{
+    display:grid; grid-template-columns:repeat(4,1fr);
+    gap:6px; margin-bottom:14px;
+  }
+  .tab-btn{
+    background: var(--bg-panel); border: 1px solid var(--border);
+    color: var(--muted); padding: 9px 4px; border-radius: 10px;
+    cursor:pointer; font-size:11px; text-align:center;
+    font-family:'Spectral',serif; transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    line-height:1.3;
+  }
+  .tab-btn.active{
+    background: var(--cyan); border-color: var(--cyan); color:#06111E; font-weight:600;
+  }
+  .tab-btn:not(.active):hover{ border-color:var(--border-light); color:var(--text); }
+
+  /* Badge Grid */
+  .badge-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+  .badge-item{ background:rgba(0,0,0,0.18); border:1px solid var(--border); border-radius:10px; padding:11px 7px; text-align:center; transition:all 0.2s ease; }
+  .badge-item.locked{ opacity:0.35; filter:grayscale(0.6); }
+  .badge-item.unlocked{ border-color:var(--gold); background:rgba(212,162,76,0.06); }
+  .badge-emoji{ font-size:24px; margin-bottom:5px; }
+  .badge-name{ font-size:11px; color:var(--text); font-weight:600; }
+  .badge-desc{ font-size:9px; color:var(--muted); margin-top:2px; line-height:1.4; }
+  .progress-summary{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; font-size:12px; color:var(--muted); }
+  .progress-summary strong{ color:var(--gold); }
+
+  /* Stats / Chart */
+  .chart-legend{ display:flex; gap:7px; flex-wrap:wrap; margin-bottom:11px; }
+  .legend-item{ display:flex; align-items:center; gap:4px; font-size:11px; color:var(--muted); cursor:pointer; padding:3px 7px; border-radius:12px; border:1px solid transparent; transition:all 0.15s ease; }
+  .legend-item.off{ opacity:0.35; }
+  .legend-dot{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .chart-svg-wrap{ width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .chart-empty{ text-align:center; padding:28px 10px; color:var(--muted); font-size:13px; }
+  .range-toggle{ display:flex; gap:5px; margin-bottom:11px; }
+  .heatmap-wrap{ overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
+  .heatmap-grid{ display:flex; gap:3px; }
+  .heatmap-col{ display:flex; flex-direction:column; gap:3px; }
+  .heatmap-cell{ width:11px; height:11px; border-radius:2px; background:#06111E; border:1px solid var(--border); }
+  .heatmap-legend{ display:flex; align-items:center; gap:4px; font-size:9px; color:var(--muted); margin-top:6px; justify-content:flex-end; }
+
+  /* Reward Shop */
+  .reward-list{ display:flex; flex-direction:column; gap:9px; }
+  .reward-card{ display:flex; align-items:center; gap:10px; background:rgba(0,0,0,0.18); border:1px solid var(--border); border-radius:10px; padding:11px 12px; }
+  .reward-card.claimed{ opacity:0.45; }
+  .reward-icon{ font-size:20px; flex-shrink:0; }
+  .reward-info{ flex:1; min-width:0; }
+  .reward-name{ font-size:13px; color:var(--text); }
+  .reward-cost{ font-size:10px; color:var(--gold); margin-top:2px; }
+  .reward-buy-btn{ background:var(--gold); color:#15140F; border:none; padding:7px 11px; border-radius:8px; font-size:11px; font-weight:600; cursor:pointer; flex-shrink:0; white-space:nowrap; }
+  .reward-buy-btn:disabled{ background:var(--border); color:var(--muted); cursor:not-allowed; }
+  .reward-claimed-tag{ font-size:10px; color:var(--emerald); flex-shrink:0; }
+
+  /* Reflection & Versus */
+  .versus-grid{ display:grid; grid-template-columns:1fr auto 1fr; gap:8px; align-items:center; margin-bottom:14px; }
+  .versus-col{ text-align:center; }
+  .versus-col .vlabel{ font-size:10px; color:var(--muted); margin-bottom:4px; }
+  .versus-col .vvalue{ font-family:'Cinzel',serif; font-size:22px; color:var(--gold); }
+  .versus-vs{ font-size:12px; color:var(--muted); font-style:italic; }
+  .versus-delta{ text-align:center; font-size:12px; margin-top:3px; }
+  .versus-delta.up{ color:var(--emerald); }
+  .versus-delta.down{ color:var(--danger); }
+  .reflection-card{ background:rgba(0,0,0,0.18); border:1px solid var(--border); border-radius:10px; padding:12px 13px; margin-bottom:10px; }
+  .reflection-date{ font-size:10px; color:var(--muted); margin-bottom:5px; }
+  .reflection-summary{ font-size:13px; color:var(--text); line-height:1.6; }
+  .reflection-note-input{ width:100%; background:#06111E; border:1px solid var(--border); color:var(--text); padding:10px; border-radius:8px; font-size:14px; font-family:'Spectral',serif; margin-top:9px; resize:vertical; min-height:70px; }
+  .reflection-note-input:focus{ outline:1px solid var(--gold); }
+  .reflection-save-btn{ margin-top:7px; background:var(--bronze); color:var(--text); border:none; padding:9px 16px; border-radius:8px; font-size:13px; cursor:pointer; }
+
+  /* Skill Tree */
+  .skilltree-card{ background:rgba(0,0,0,0.18); border:1px solid var(--border); border-radius:11px; padding:13px; margin-bottom:11px; }
+  .skilltree-title{ display:flex; align-items:center; gap:7px; font-size:13px; color:var(--text); margin-bottom:9px; }
+  .skilltree-nodes{ display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+  .skilltree-node{ width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; background:#06111E; border:2px solid var(--border); color:var(--muted); }
+  .skilltree-node.filled{ background:var(--gold); border-color:var(--gold); color:#15140F; }
+  .skilltree-node.current{ border-color:var(--gold); box-shadow:0 0 10px rgba(212,162,76,0.5); }
+  .skilltree-line{ width:12px; height:2px; background:var(--border); flex-shrink:0; }
+  .skilltree-line.filled{ background:var(--gold); }
+  .skilltree-progress-text{ font-size:10px; color:var(--muted); margin-top:7px; }
+
+  /* ===== EVENT SYSTEM ===== */
+  .event-banner{
+    border-radius:12px; padding:12px 14px; margin-bottom:12px;
+    border:1px solid; animation: eventGlow 3s ease-in-out infinite alternate;
+  }
+  .event-banner.seasonal{ background:linear-gradient(135deg,#2a1f3d,#1a1225); border-color:#8B5CF6; }
+  .event-banner.scheduled{ background:linear-gradient(135deg,#1a2a1a,#0f1a0f); border-color:var(--emerald); }
+  .event-banner.achievement{ background:linear-gradient(135deg,#3a2a0a,#1a1205); border-color:var(--gold); }
+  @keyframes eventGlow{
+    from{ box-shadow:0 0 8px rgba(212,162,76,0.1); }
+    to{ box-shadow:0 0 18px rgba(212,162,76,0.3); }
+  }
+  .event-banner.seasonal{ animation-name:eventGlowPurple; }
+  @keyframes eventGlowPurple{
+    from{ box-shadow:0 0 8px rgba(139,92,246,0.1); }
+    to{ box-shadow:0 0 18px rgba(139,92,246,0.35); }
+  }
+  .event-top{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .event-icon{ font-size:22px; flex-shrink:0; }
+  .event-name{ font-size:14px; font-weight:700; color:var(--text); flex:1; }
+  .event-timer{ font-size:10px; color:var(--muted); white-space:nowrap; }
+  .event-desc{ font-size:12px; color:var(--muted); line-height:1.5; margin-bottom:8px; }
+  .event-effects{ display:flex; flex-wrap:wrap; gap:6px; }
+  .event-effect-tag{
+    font-size:10px; padding:2px 8px; border-radius:10px;
+    background:rgba(212,162,76,0.15); border:1px solid rgba(212,162,76,0.3); color:var(--gold);
+  }
+  .event-banner.seasonal .event-effect-tag{ background:rgba(139,92,246,0.15); border-color:rgba(139,92,246,0.3); color:#a78bfa; }
+  .event-banner.scheduled .event-effect-tag{ background:rgba(79,120,97,0.15); border-color:rgba(79,120,97,0.3); color:#6ee7b7; }
+
+  .no-event-msg{ text-align:center; padding:20px 10px; color:var(--muted); font-size:13px; }
+
+  .event-calendar{ display:flex; flex-direction:column; gap:10px; }
+  .event-cal-item{
+    display:flex; align-items:center; gap:12px;
+    background:rgba(0,0,0,0.18); border:1px solid var(--border);
+    border-radius:10px; padding:11px 13px;
+  }
+  .event-cal-icon{ font-size:20px; flex-shrink:0; }
+  .event-cal-info{ flex:1; min-width:0; }
+  .event-cal-name{ font-size:13px; color:var(--text); font-weight:600; }
+  .event-cal-when{ font-size:10px; color:var(--muted); margin-top:2px; }
+  .event-cal-badge{
+    font-size:9px; padding:2px 7px; border-radius:10px; flex-shrink:0;
+    background:rgba(212,162,76,0.12); border:1px solid rgba(212,162,76,0.25); color:var(--gold);
+  }
+
+  /* ===== RIWAYAT PERJALANAN ===== */
+  .journey-empty{ text-align:center; padding:30px 10px; color:var(--muted); font-size:13px; }
+  .journey-start{
+    text-align:center; padding:14px; margin-bottom:16px;
+    background:rgba(212,162,76,0.06); border:1px solid rgba(212,162,76,0.2);
+    border-radius:12px;
+  }
+  .journey-start .js-date{ font-size:10px; color:var(--muted); }
+  .journey-start .js-title{ font-size:14px; color:var(--gold); font-weight:600; margin-top:2px; }
+  .journey-start .js-days{ font-size:11px; color:var(--muted); margin-top:4px; }
+
+  .timeline{ position:relative; padding-left:28px; }
+  .timeline::before{
+    content:''; position:absolute; left:10px; top:0; bottom:0;
+    width:2px; background:linear-gradient(to bottom, var(--cyan), transparent);
+  }
+  .timeline-item{
+    position:relative; margin-bottom:16px;
+  }
+  .timeline-dot{
+    position:absolute; left:-23px; top:3px;
+    width:16px; height:16px; border-radius:50%;
+    background:var(--bg-panel); border:2px solid var(--cyan);
+    display:flex; align-items:center; justify-content:center;
+    font-size:8px;
+  }
+  .timeline-dot.big{ width:20px; height:20px; left:-25px; background:var(--gold); }
+  .timeline-content{
+    background:rgba(0,0,0,0.18); border:1px solid var(--border);
+    border-radius:10px; padding:10px 12px;
+  }
+  .timeline-content.highlight{ border-color:var(--gold); background:rgba(212,162,76,0.06); }
+  .timeline-date{ font-size:10px; color:var(--muted); margin-bottom:3px; }
+  .timeline-title{ font-size:13px; color:var(--text); font-weight:600; }
+  .timeline-sub{ font-size:11px; color:var(--muted); margin-top:2px; }
+
+  /* ===== EXPORT / IMPORT ===== */
+  .backup-section{ display:flex; flex-direction:column; gap:10px; }
+  .backup-card{
+    background:rgba(0,0,0,0.18); border:1px solid var(--border);
+    border-radius:12px; padding:16px;
+  }
+  .backup-card h4{ font-size:13px; color:var(--text); font-weight:600; margin-bottom:4px; }
+  .backup-card p{ font-size:11px; color:var(--muted); line-height:1.5; margin-bottom:12px; }
+  .backup-btn{
+    width:100%; padding:11px; border-radius:10px; cursor:pointer;
+    font-size:13px; font-weight:600; border:none; font-family:'Spectral',serif;
+    transition:all 0.2s ease;
+  }
+  .backup-btn.export{ background:var(--cyan); color:#06111E; }
+  .backup-btn.import{ background:transparent; border:1.5px solid var(--border); color:var(--muted); }
+  .backup-btn.import:hover{ border-color:var(--gold); color:var(--gold); }
+  .backup-warning{
+    font-size:11px; color:var(--danger); margin-top:8px; text-align:center;
+  }
+  .backup-success{
+    font-size:11px; color:var(--emerald); margin-top:8px; text-align:center;
+  }
+</style>
+</head>
+<body>
+  <div id="root">
+    <div class="loading-screen">
+      <div class="spinner"></div>
+      <p>Menyiapkan duniamu...</p>
+    </div>
+  </div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+/* ===== CONSTANTS ===== */
+const STATS = {
+  body:       { label: 'Body',       emoji: '💪', color: '#FB923C', colorLight: '#FDBA74', colorAlpha: 'rgba(251,146,60,0.15)' },
+  mind:       { label: 'Mind',       emoji: '🧠', color: '#38BDF8', colorLight: '#67E8F9', colorAlpha: 'rgba(56,189,248,0.15)'  },
+  career:     { label: 'Career',     emoji: '💼', color: '#A78BFA', colorLight: '#C4B5FD', colorAlpha: 'rgba(167,139,250,0.15)' },
+  social:     { label: 'Social',     emoji: '❤️', color: '#F472B6', colorLight: '#F9A8D4', colorAlpha: 'rgba(244,114,182,0.15)' },
+  discipline: { label: 'Discipline', emoji: '✨', color: '#FCD34D', colorLight: '#FDE68A', colorAlpha: 'rgba(252,211,77,0.15)'  },
+};
+const STAT_KEYS = Object.keys(STATS);
+const XP_PER_LEVEL = 100;
+
+function xpToLevel(totalXP){
+  let level = 1, cumulative = 0;
+  while(true){
+    const need = level * XP_PER_LEVEL;
+    if (cumulative + need > totalXP) break;
+    cumulative += need; level += 1;
+  }
+  const currentLevelXP = totalXP - cumulative;
+  const neededForNext = level * XP_PER_LEVEL;
+  return { level, currentLevelXP, neededForNext, progress: neededForNext ? currentLevelXP/neededForNext : 0 };
+}
+
+function avatarStage(overallLevel){
+  if (overallLevel >= 50) return { stage: 3, name: 'Pohon Besar', emoji: '🌳' };
+  if (overallLevel >= 25) return { stage: 2, name: 'Pohon Muda', emoji: '🌲' };
+  if (overallLevel >= 10) return { stage: 1, name: 'Tunas', emoji: '🌱' };
+  return { stage: 0, name: 'Benih', emoji: '🌰' };
+}
+
+const PRAISE_SMALL = [
+  'Mantap, satu langkah lagi! 🔥','Konsisten itu kuncinya — lanjutkan! ⚡',
+  'Karaktermu makin kuat! 💫','Kerja bagus, terus melaju! 🚀',
+  'Itu baru namanya progres! ✨','Disiplin kecil, hasil besar. 👏',
+  'Kamu baru saja menang hari ini. 🏅','Satu quest lagi, satu langkah dekat ke tujuan. 🎯',
+];
+const PRAISE_LEVELUP = [
+  'LEVEL UP! Karaktermu naik level! 🎉','Evolusi! Kamu makin kuat dari sebelumnya! ⚡✨',
+  'Level baru terbuka — petualanganmu berlanjut! 🏆',
+];
+
+function uid(){ return Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+/* ===== BADGES / TROFI ===== */
+const BADGES = [
+  { id:'first_quest', name:'Langkah Pertama', emoji:'🥾', desc:'Selesaikan quest pertamamu', check: (ctx) => ctx.questsCompletedTotal >= 1 },
+  { id:'streak_7', name:'Seminggu Penuh', emoji:'🔥', desc:'Capai streak 7 hari', check: (ctx) => ctx.character.streak >= 7 },
+  { id:'streak_30', name:'Sebulan Konsisten', emoji:'🌋', desc:'Capai streak 30 hari', check: (ctx) => ctx.character.streak >= 30 },
+  { id:'level_5', name:'Pemula Berbakat', emoji:'⭐', desc:'Capai Level 5 overall', check: (ctx) => ctx.overallLevel >= 5 },
+  { id:'level_10', name:'Tunas Bertumbuh', emoji:'🌱', desc:'Capai Level 10 overall', check: (ctx) => ctx.overallLevel >= 10 },
+  { id:'level_25', name:'Pohon Muda', emoji:'🌲', desc:'Capai Level 25 overall', check: (ctx) => ctx.overallLevel >= 25 },
+  { id:'level_50', name:'Pohon Besar', emoji:'🌳', desc:'Capai Level 50 overall', check: (ctx) => ctx.overallLevel >= 50 },
+  { id:'body_10', name:'Raga Kuat', emoji:'💪', desc:'Capai Level 10 di stat Body', check: (ctx) => xpToLevel(ctx.character.stats.body).level >= 10 },
+  { id:'mind_10', name:'Pikiran Tajam', emoji:'🧠', desc:'Capai Level 10 di stat Mind', check: (ctx) => xpToLevel(ctx.character.stats.mind).level >= 10 },
+  { id:'career_10', name:'Profesional Andal', emoji:'💼', desc:'Capai Level 10 di stat Career', check: (ctx) => xpToLevel(ctx.character.stats.career).level >= 10 },
+  { id:'social_10', name:'Jiwa Sosial', emoji:'❤️', desc:'Capai Level 10 di stat Social', check: (ctx) => xpToLevel(ctx.character.stats.social).level >= 10 },
+  { id:'discipline_10', name:'Berdisiplin Tinggi', emoji:'✨', desc:'Capai Level 10 di stat Discipline', check: (ctx) => xpToLevel(ctx.character.stats.discipline).level >= 10 },
+  { id:'balanced', name:'Jiwa Seimbang', emoji:'☯️', desc:'Semua stat minimal Level 5', check: (ctx) => STAT_KEYS.every(k => xpToLevel(ctx.character.stats[k]).level >= 5) },
+  { id:'quests_50', name:'Pekerja Keras', emoji:'🛠️', desc:'Selesaikan 50 quest total', check: (ctx) => ctx.questsCompletedTotal >= 50 },
+  { id:'quests_100', name:'Veteran Quest', emoji:'🏅', desc:'Selesaikan 100 quest total', check: (ctx) => ctx.questsCompletedTotal >= 100 },
+  { id:'boss_1', name:'Penakluk Pertama', emoji:'👑', desc:'Selesaikan 1 Boss Quest', check: (ctx) => ctx.bossesCompleted >= 1 },
+  { id:'rich_500', name:'Kolektor Koin', emoji:'🪙', desc:'Kumpulkan 500 coin', check: (ctx) => ctx.character.coins >= 500 },
+];
+
+function checkNewBadges(ctx, unlockedIds){
+  return BADGES.filter(b => !unlockedIds.includes(b.id) && b.check(ctx));
+}
+
+/* ===== LEVEL REWARD TABLE ===== */
+const LEVEL_REWARDS = {
+  2:  { coin: 50,  freeze: 0, title: 'Petualang Muda',     badge: null },
+  3:  { coin: 75,  freeze: 0, title: null,                  badge: null },
+  4:  { coin: 100, freeze: 0, title: null,                  badge: null },
+  5:  { coin: 150, freeze: 1, title: 'Petualang Berbakat',  badge: 'level_5' },
+  7:  { coin: 200, freeze: 0, title: null,                  badge: null },
+  10: { coin: 300, freeze: 1, title: 'Penjelajah Sejati',   badge: 'level_10' },
+  15: { coin: 400, freeze: 1, title: 'Prajurit Disiplin',   badge: null },
+  20: { coin: 500, freeze: 2, title: 'Ksatria Tekad',       badge: null },
+  25: { coin: 750, freeze: 2, title: 'Penjaga Cahaya',      badge: 'level_25' },
+  30: { coin: 1000,freeze: 2, title: 'Legenda Hidup',       badge: null },
+  40: { coin: 1500,freeze: 3, title: 'Maestro Kehidupan',   badge: null },
+  50: { coin: 2000,freeze: 3, title: 'Pohon Besar Sejati',  badge: 'level_50' },
+};
+
+// Ambil reward untuk level tertentu (null kalau tidak ada reward spesial)
+function getLevelReward(level){
+  return LEVEL_REWARDS[level] || (level % 5 === 0 ? { coin: level * 20, freeze: 0, title: null, badge: null } : null);
+}
+
+// Title berdasarkan level (untuk display di karakter)
+const LEVEL_TITLES = [
+  { min:1,  title:'Benih'             },
+  { min:5,  title:'Petualang Berbakat'},
+  { min:10, title:'Penjelajah Sejati' },
+  { min:15, title:'Prajurit Disiplin' },
+  { min:20, title:'Ksatria Tekad'     },
+  { min:25, title:'Penjaga Cahaya'    },
+  { min:30, title:'Legenda Hidup'     },
+  { min:40, title:'Maestro Kehidupan' },
+  { min:50, title:'Pohon Besar Sejati'},
+];
+
+function getLevelTitle(level){
+  let title = 'Benih';
+  for(const t of LEVEL_TITLES){ if(level >= t.min) title = t.title; }
+  return title;
+}
+const SCHEDULED_EVENTS = [
+  { id:'double_xp_weekend', name:'Double XP Weekend', icon:'⚡', type:'scheduled',
+    desc:'Akhir pekan adalah waktunya nge-grind! Semua XP berlipat ganda.',
+    effects:['XP ×2 semua stat'], xpMult:2, coinMult:1,
+    check:()=>{ const d=new Date().getDay(); return d===6||d===0; }, duration:'Sabtu–Minggu' },
+  { id:'healthy_wednesday', name:'Rabu Sehat', icon:'🏃', type:'scheduled',
+    desc:'Hari Rabu spesial — XP Body berlipat ganda!',
+    effects:['XP Body ×2'], xpMult:1, coinMult:1, statBonus:{body:2},
+    check:()=>new Date().getDay()===3, duration:'Setiap Rabu' },
+  { id:'friday_sprint', name:'Sprint Jumat', icon:'🔥', type:'scheduled',
+    desc:'Tutup minggu dengan kuat! Coin berlipat dua hari ini.',
+    effects:['Coin ×2'], xpMult:1, coinMult:2,
+    check:()=>new Date().getDay()===5, duration:'Setiap Jumat' },
+  { id:'monday_mind', name:'Senin Produktif', icon:'🌙', type:'scheduled',
+    desc:'Mulai minggu dengan pikiran tajam — XP Mind & Career lebih besar.',
+    effects:['XP Mind ×1.5','XP Career ×1.5'], xpMult:1, coinMult:1, statBonus:{mind:1.5,career:1.5},
+    check:()=>new Date().getDay()===1, duration:'Setiap Senin' },
+];
+
+const SEASONAL_EVENTS = [
+  { id:'new_year', name:'Resolusi Baru', icon:'🎆', type:'seasonal',
+    desc:'Tahun baru, semangat baru! XP berlipat dua selama seminggu penuh.',
+    effects:['XP ×2 semua stat'], xpMult:2, coinMult:1,
+    check:()=>{ const d=new Date(); return d.getMonth()===0&&d.getDate()<=7; }, duration:'1–7 Januari' },
+  { id:'love_month', name:'Bulan Kasih', icon:'❤️', type:'seasonal',
+    desc:'Februari adalah bulan untuk mempererat hubungan.',
+    effects:['XP Social ×2'], xpMult:1, coinMult:1, statBonus:{social:2},
+    check:()=>new Date().getMonth()===1, duration:'Sepanjang Februari' },
+  { id:'dark_october', name:'Oktober Gelap', icon:'👻', type:'seasonal',
+    desc:'Bulan misterius penuh tantangan. Coin berlipat dua!',
+    effects:['Coin ×2'], xpMult:1, coinMult:2,
+    check:()=>new Date().getMonth()===9, duration:'Sepanjang Oktober' },
+  { id:'year_end', name:'Akhir Tahun', icon:'🎄', type:'seasonal',
+    desc:'Rayakan pencapaianmu! XP berlipat dua di penghujung tahun.',
+    effects:['XP ×2 semua stat'], xpMult:2, coinMult:1,
+    check:()=>{ const d=new Date(); return d.getMonth()===11&&d.getDate()>=25; }, duration:'25–31 Desember' },
+  { id:'study_jul', name:'Musim Belajar', icon:'🎓', type:'seasonal',
+    desc:'Semester baru — gas terus untuk Mind & Career!',
+    effects:['XP Mind ×2','XP Career ×2'], xpMult:1, coinMult:1, statBonus:{mind:2,career:2},
+    check:()=>{ const d=new Date(); return d.getMonth()===6&&d.getDate()<=7; }, duration:'1–7 Juli' },
+];
+
+const ACHIEVEMENT_EVENT_DEFS = [
+  { id:'momentum_start', name:'Momentum Awal!', icon:'🌟', type:'achievement',
+    desc:'3 hari pertamamu beruntun! Energi sedang tinggi.',
+    effects:['XP ×1.5 selama 24 jam'], xpMult:1.5, coinMult:1, durationHours:24,
+    trigger:(char)=>char.streak===3 },
+  { id:'on_fire', name:'On Fire!', icon:'🔥🔥', type:'achievement',
+    desc:'7 hari beruntun! Kamu sedang dalam zona terbaik.',
+    effects:['XP ×2 selama 48 jam','Streak Freeze +1'], xpMult:2, coinMult:1, durationHours:48, bonusFreezes:1,
+    trigger:(char)=>char.streak===7 },
+  { id:'unstoppable', name:'Unstoppable!', icon:'💥', type:'achievement',
+    desc:'30 hari! Ini bukan keberuntungan — ini transformasi nyata.',
+    effects:['XP ×3 selama 72 jam','Coin ×2','Streak Freeze +2'], xpMult:3, coinMult:2, durationHours:72, bonusFreezes:2,
+    trigger:(char)=>char.streak===30 },
+  { id:'comeback', name:'Comeback!', icon:'⚔️', type:'achievement',
+    desc:'Selamat datang kembali! Jatuh bukan akhir — ini babak baru.',
+    effects:['XP ×2 selama 24 jam','Streak Freeze +1'], xpMult:2, coinMult:1, durationHours:24, bonusFreezes:1,
+    triggerComeback:true },
+  { id:'boss_slayer', name:'Boss Slayer!', icon:'👑', type:'achievement',
+    desc:'Boss Quest selesai! Buktikan kamu bisa menyelesaikan hal besar.',
+    effects:['XP ×2 selama 48 jam'], xpMult:2, coinMult:1, durationHours:48,
+    triggerBoss:true },
+  { id:'renaissance', name:'Renaissance!', icon:'🌈', type:'achievement',
+    desc:'Semua 5 stat aktif hari ini — manusia yang seimbang.',
+    effects:['Coin ×2 selama 24 jam'], xpMult:1, coinMult:2, durationHours:24,
+    triggerRenaissance:true },
+];
+
+function getActiveScheduledEvents(){ return [...SCHEDULED_EVENTS,...SEASONAL_EVENTS].filter(ev=>ev.check()); }
+
+function calcEventMultiplier(activeEvents, statType){
+  if(!activeEvents||!activeEvents.length) return {xp:1,coin:1};
+  let xpMax=1,coinMax=1,xpExtra=0,coinExtra=0;
+  activeEvents.forEach(ev=>{
+    const sm=ev.statBonus&&ev.statBonus[statType]?ev.statBonus[statType]:ev.xpMult||1;
+    if(sm>xpMax){xpExtra+=xpMax-1;xpMax=sm;}else{xpExtra+=sm-1;}
+    const cm=ev.coinMult||1;
+    if(cm>coinMax){coinExtra+=coinMax-1;coinMax=cm;}else{coinExtra+=cm-1;}
+  });
+  return {xp:Math.max(1,xpMax+xpExtra*0.5), coin:Math.max(1,coinMax+coinExtra*0.5)};
+}
+
+function formatEventTimer(ev){
+  if(!ev.expiresAt) return '';
+  const ms=ev.expiresAt-Date.now();
+  if(ms<=0) return 'Berakhir';
+  const h=Math.floor(ms/3600000);
+  const m=Math.floor((ms%3600000)/60000);
+  return h>0?`${h}j ${m}m lagi`:`${m} menit lagi`;
+}
+function defaultCharacter(){
+  return {
+    name: 'Petualang',
+    stats: { body:0, mind:0, career:0, social:0, discipline:0 },
+    coins: 0,
+    streak: 0,
+    lastActiveDate: null,
+    streakFreezes: 2,
+    questsCompletedTotal: 0,
+    bossesCompleted: 0,
+    createdAt: todayStr(),
+  };
+}
+
+function defaultQuests(){
+  return [
+    { id: uid(), title: 'Minum air putih 8 gelas', statType:'body', type:'daily', xp:50, coin:10, completedToday:false },
+    { id: uid(), title: 'Baca buku 15 menit', statType:'mind', type:'daily', xp:50, coin:10, completedToday:false },
+    { id: uid(), title: 'Rapikan 1 tugas kerja/kuliah', statType:'career', type:'daily', xp:60, coin:10, completedToday:false },
+  ];
+}
+
+/* ===== STORAGE HELPERS (localStorage) ===== */
+function lsGet(key, fallback = null){
+  try{
+    const v = localStorage.getItem('liferpg_' + key);
+    return v ? JSON.parse(v) : fallback;
+  }catch(e){ return fallback; }
+}
+function lsSet(key, value){
+  try{ localStorage.setItem('liferpg_' + key, JSON.stringify(value)); }catch(e){}
+}
+
+/* ===== GOOGLE SHEETS SYNC ===== */
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzuX1f6rW9yESrFzAMv55XN30jtMQTK_NNBIVbJP53KFe0oDBy1arweoG8CVJDnHPob7Q/exec';
+const SYNC_KEYS = ['character','quests_active','badges_unlocked','xp_log','rewards_custom','reflections','active_achiev_events','journey_log'];
+const PENDING_KEY = 'liferpg_pending_sync'; // daftar key yang belum ter-sync
+
+// Tandai key sebagai "perlu di-sync"
+function markPending(key){
+  try{
+    const p = JSON.parse(localStorage.getItem(PENDING_KEY)||'[]');
+    if(!p.includes(key)) p.push(key);
+    localStorage.setItem(PENDING_KEY, JSON.stringify(p));
+  }catch(e){}
+}
+
+// Ambil daftar key yang pending
+function getPending(){
+  try{ return JSON.parse(localStorage.getItem(PENDING_KEY)||'[]'); }
+  catch(e){ return []; }
+}
+
+// Bersihkan pending setelah sync berhasil
+function clearPending(){
+  try{ localStorage.setItem(PENDING_KEY, '[]'); }catch(e){}
+}
+
+// Simpan ke localStorage DAN tandai pending
+function lsSetAndMark(key, value){
+  lsSet(key, value);
+  markPending(key);
+}
+
+// Kirim data ke Google Sheets (semua key yang pending)
+async function syncToSheets(){
+  const pending = getPending();
+  if(!pending.length) return { success: true, skipped: true };
+  const payload = {};
+  pending.forEach(k => {
+    const v = lsGet(k);
+    if(v !== null) payload[k] = v;
+  });
+  try{
+    const res = await fetch(SHEETS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'save', payload }),
+    });
+    const json = await res.json();
+    if(json.success) clearPending();
+    return json;
+  }catch(e){
+    return { success: false, error: e.toString() };
+  }
+}
+
+// Tarik semua data dari Google Sheets
+async function loadFromSheets(){
+  try{
+    const res = await fetch(SHEETS_URL + '?action=load');
+    const json = await res.json();
+    if(json.success && json.data){
+      Object.entries(json.data).forEach(([k,v])=>{
+        lsSet(k, v);
+      });
+      return { success: true, data: json.data };
+    }
+    return { success: false };
+  }catch(e){
+    return { success: false, error: e.toString() };
+  }
+}
+
+// Hapus semua data di Sheets (kirim data kosong)
+async function clearSheetsData(){
+  const emptyPayload = {};
+  SYNC_KEYS.forEach(k => { emptyPayload[k] = null; });
+  try{
+    await fetch(SHEETS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'save', payload: emptyPayload }),
+    });
+  }catch(e){}
+}
+
+// Auto-sync: coba kirim pending setiap 30 detik kalau ada koneksi
+function startAutoSync(callback){
+  setInterval(async ()=>{
+    if(navigator.onLine && getPending().length > 0){
+      const result = await syncToSheets();
+      if(result.success && callback) callback();
+    }
+  }, 30000);
+}
+
+/* ===== STORAGE HOOK ===== */
+function useCharacterData(){
+  const [character, setCharacter] = useState(null);
+  const [quests, setQuests] = useState(null);
+  const [badges, setBadges] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [syncStatus, setSyncStatus] = useState('idle'); // idle | syncing | synced | offline | error
+
+  useEffect(() => {
+    (async ()=>{
+      try{
+        // Cek apakah localStorage sudah ada data
+        let char = lsGet('character');
+        const hasLocalData = !!char;
+
+        // Kalau tidak ada data lokal DAN ada internet → tarik dari Sheets dulu
+        if(!hasLocalData && navigator.onLine){
+          setSyncStatus('syncing');
+          try{
+            const result = await loadFromSheets();
+            if(result.success && result.data && result.data.character){
+              char = result.data.character;
+              setSyncStatus('synced');
+            }
+          }catch(e){ setSyncStatus('offline'); }
+        }
+
+        let q = lsGet('quests_active');
+        let b = lsGet('badges_unlocked');
+        if (!char) char = defaultCharacter();
+        if (!q)    q    = defaultQuests();
+        if (!b)    b    = [];
+        setCharacter(char);
+        setQuests(q);
+        setBadges(b);
+        setLoading(false);
+
+        // Kalau ada pending yang belum ter-sync, coba kirim sekarang
+        if(navigator.onLine && getPending().length > 0){
+          setSyncStatus('syncing');
+          const r = await syncToSheets();
+          setSyncStatus(r.success ? 'synced' : 'offline');
+        }
+      }catch(e){
+        setError('Gagal memuat data. Coba refresh.');
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  const saveCharacter = useCallback((updater) => {
+    setCharacter(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      lsSet('character', next);
+      markPending('character');
+      return next;
+    });
+  }, []);
+
+  const saveQuests = useCallback((updater) => {
+    setQuests(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      lsSet('quests_active', next);
+      markPending('quests_active');
+      return next;
+    });
+  }, []);
+
+  const saveBadges = useCallback((updater) => {
+    setBadges(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      lsSet('badges_unlocked', next);
+      markPending('badges_unlocked');
+      return next;
+    });
+  }, []);
+
+  return { character, quests, badges, loading, error, syncStatus, setSyncStatus, saveCharacter, saveQuests, saveBadges };
+}
+
+/* ===== XP LOG (untuk grafik statistik) ===== */
+function appendXPLog(entry){
+  try{
+    let log = lsGet('xp_log', []);
+    log.push(entry);
+    if (log.length > 200) log = log.slice(log.length - 200);
+    lsSet('xp_log', log);
+    markPending('xp_log');
+  }catch(e){}
+}
+
+function fetchXPLog(){ return lsGet('xp_log', []); }
+function fetchRewards(){ return lsGet('rewards_custom', []); }
+function saveRewardsToStorage(rewards){ lsSet('rewards_custom', rewards); markPending('rewards_custom'); }
+function fetchReflections(){ return lsGet('reflections', []); }
+function saveReflectionsToStorage(r){ lsSet('reflections', r); markPending('reflections'); }
+
+/* ===== RIVAL SYSTEM ===== */
+const RIVAL_TEMPLATES = [
+  { id:'r01', name:'SilverWing_42',  emoji:'🦅', grad:['#0EA5E9','#2DD4BF'], personality:'consistent',   desc:'Konsisten setiap hari tanpa henti',          weekdayMult:1.0, weekendMult:0.8, skipChance:0.05, specialty:'discipline' },
+  { id:'r02', name:'NightCrawler_7', emoji:'🌙', grad:['#A78BFA','#F472B6'], personality:'nightowl',     desc:'Aktif di malam hari, loyo di pagi hari',    weekdayMult:0.7, weekendMult:1.4, skipChance:0.15, specialty:'mind'       },
+  { id:'r03', name:'DawnRider_05',   emoji:'🔥', grad:['#FCD34D','#FB923C'], personality:'sprinter',     desc:'Semangat awal bulan, loyo akhir bulan',     weekdayMult:1.3, weekendMult:0.5, skipChance:0.20, specialty:'body'       },
+  { id:'r04', name:'IronMind_88',    emoji:'⚡', grad:['#38BDF8','#A78BFA'], personality:'studious',     desc:'Spesialis pikiran dan karir',                weekdayMult:1.2, weekendMult:0.6, skipChance:0.10, specialty:'mind'       },
+  { id:'r05', name:'SilentForce_3',  emoji:'🌊', grad:['#2DD4BF','#0EA5E9'], personality:'steady',       desc:'Lambat tapi tidak pernah berhenti',          weekdayMult:0.8, weekendMult:0.8, skipChance:0.08, specialty:'discipline' },
+  { id:'r06', name:'WildCard_99',    emoji:'🎲', grad:['#F472B6','#FCD34D'], personality:'chaotic',      desc:'Tidak bisa ditebak, kadang meledak',         weekdayMult:1.5, weekendMult:1.5, skipChance:0.35, specialty:'social'     },
+  { id:'r07', name:'GoldRush_21',    emoji:'🏆', grad:['#F59E0B','#FCD34D'], personality:'competitive',  desc:'Selalu mencari cara untuk unggul',           weekdayMult:1.1, weekendMult:1.2, skipChance:0.08, specialty:'career'     },
+  { id:'r08', name:'DeepDive_55',    emoji:'🧠', grad:['#C4B5FD','#38BDF8'], personality:'intellectual', desc:'Fokus total pada pikiran dan ilmu',          weekdayMult:0.9, weekendMult:1.3, skipChance:0.12, specialty:'mind'       },
+  { id:'r09', name:'IronWill_14',    emoji:'💪', grad:['#FB923C','#F87171'], personality:'athlete',      desc:'Tubuh adalah senjata utamanya',              weekdayMult:1.1, weekendMult:1.4, skipChance:0.10, specialty:'body'       },
+  { id:'r10', name:'ZenPath_33',     emoji:'☯️', grad:['#4ADE80','#2DD4BF'], personality:'balanced',     desc:'Menjaga semua aspek hidup secara seimbang',  weekdayMult:0.9, weekendMult:0.9, skipChance:0.06, specialty:'social'     },
+];
+
+function initRivals(){
+  const baseXPs = [9240,7820,6980,11200,5600,13500,8800,4200,10100,7100];
+  return RIVAL_TEMPLATES.map((t,i)=>({
+    ...t,
+    stats:{ body:Math.floor(baseXPs[i]*0.2), mind:Math.floor(baseXPs[i]*0.2),
+            career:Math.floor(baseXPs[i]*0.2), social:Math.floor(baseXPs[i]*0.2),
+            discipline:Math.floor(baseXPs[i]*0.2) },
+    totalXP: baseXPs[i],
+    streak: [12,8,3,15,22,1,9,6,14,19][i],
+    lastUpdated: null,
+    joinedDate: todayStr(),
+  }));
+}
+
+function updateRivalsDaily(rivals){
+  const today = todayStr();
+  const dayOfWeek = new Date().getDay();
+  const dayOfMonth = new Date().getDate();
+  const isWeekend = dayOfWeek===0||dayOfWeek===6;
+  return rivals.map(r=>{
+    if(r.lastUpdated===today) return r;
+    const seed = parseInt(r.id.replace('r',''))*1000 + parseInt(today.replace(/-/g,''))%10000;
+    const rng = (n) => ((seed*1664525 + n*1013904223)&0x7fffffff)/0x7fffffff;
+    if(rng(1) < r.skipChance) return {...r, lastUpdated:today, todayXP:0};
+    let base = 80 + rng(2)*120;
+    const mult = isWeekend ? r.weekendMult : r.weekdayMult;
+    if(r.personality==='sprinter') base *= dayOfMonth<=10?1.5:dayOfMonth<=20?1.0:0.5;
+    if(r.personality==='chaotic') base *= rng(3)>0.7?2.5:0.3;
+    const todayXP = Math.round(base*mult);
+    const newStats = {...r.stats};
+    STAT_KEYS.forEach(k=>{ newStats[k]=(newStats[k]||0)+Math.round(todayXP*(k===r.specialty?0.35:0.1625)); });
+    return {...r, stats:newStats, totalXP:r.totalXP+todayXP, streak:r.streak+1, lastUpdated:today, todayXP};
+  });
+}
+
+function fetchRivals(){
+  let rivals = lsGet('rivals', null);
+  if(!rivals||rivals.length!==10){ rivals=initRivals(); lsSet('rivals',rivals); }
+  const updated = updateRivalsDaily(rivals);
+  lsSet('rivals', updated);
+  return updated;
+}
+
+function fetchActiveAchievEvents(){ return lsGet('active_achiev_events', []); }
+function saveActiveAchievEvents(ev){ lsSet('active_achiev_events', ev); markPending('active_achiev_events'); }
+function fetchJourney(){ return lsGet('journey_log', []); }
+function saveJourney(j){ lsSet('journey_log', j); markPending('journey_log'); }
+
+function addJourneyEvent(entry){
+  const log = fetchJourney();
+  log.push({...entry, timestamp: Date.now(), date: todayStr()});
+  if(log.length>200) log.splice(0, log.length-200);
+  saveJourney(log);
+}
+
+/* ===== CHARACTER CARD COMPONENT ===== */
+function CharacterCard({ character, justLeveledUp }){
+  const totalXP = STAT_KEYS.reduce((sum,k) => sum + (character.stats[k]||0), 0);
+  const overall = xpToLevel(totalXP);
+  const avatar = avatarStage(overall.level);
+
+  return (
+    <div className="char-card">
+      <div className="char-top">
+        <div className={"avatar-circle" + (justLeveledUp ? " bump" : "")}>
+          {avatar.emoji}
+        </div>
+        <div className="char-info">
+          <div className="char-name-row">
+            <span className="char-name">{character.name}</span>
+            <span className="char-title">{avatar.name}</span>
+          </div>
+          <div className="char-level-row">
+            <span className="level-badge">LV {overall.level}</span>
+            <span className="coin-badge">🪙 {character.coins}</span>
+          </div>
+          <div className="xp-bar-wrap">
+            <div className="xp-bar-track">
+              <div className="xp-bar-fill" style={{width: Math.round(overall.progress*100)+'%'}}></div>
+            </div>
+            <div className="xp-bar-label">
+              <span>{overall.currentLevelXP} / {overall.neededForNext} XP</span>
+              <span>Total: {totalXP} XP</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="stats-grid">
+        {STAT_KEYS.map(key => {
+          const s = STATS[key];
+          const lv = xpToLevel(character.stats[key]||0);
+          return (
+            <div className="stat-item" key={key} style={{borderColor: s.color+'40', background: s.colorAlpha}}>
+              <div className="stat-head">
+                <span className="label" style={{color:s.colorLight}}>{s.emoji} {s.label}</span>
+                <span className="lvl" style={{color:s.color}}>Lv{lv.level}</span>
+              </div>
+              <div className="stat-bar-track">
+                <div className="stat-bar-fill" style={{
+                  width: Math.round(lv.progress*100)+'%',
+                  background: `linear-gradient(90deg, ${s.color}, ${s.colorLight})`,
+                  boxShadow: `0 0 6px ${s.color}80`
+                }}></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="streak-row">
+        <span className="streak-flame">🔥</span>
+        <span>{character.streak} hari beruntun</span>
+        <span style={{opacity:0.5}}>•</span>
+        <span>{character.streakFreezes} freeze tersisa</span>
+      </div>
+    </div>
+  );
+}
+
+/* ===== TOAST NOTIFICATION ===== */
+function ToastStack({ toasts }){
+  return (
+    <div className="toast-wrap">
+      {toasts.map(t => (
+        <div className={"toast" + (t.levelup ? " levelup" : "")} key={t.id}>
+          <span className="toast-icon">{t.icon}</span>
+          <div className="toast-text">
+            <div className="main">{t.main}</div>
+            {t.sub && <div className="sub">{t.sub}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ===== EVENT COMPONENTS ===== */
+function EventBanner({ events }){
+  const [tick, setTick] = useState(0);
+  useEffect(()=>{
+    const t = setInterval(()=>setTick(p=>p+1), 60000);
+    return ()=>clearInterval(t);
+  },[]);
+  if(!events||!events.length) return null;
+  return (
+    <React.Fragment>
+      {events.map(ev=>(
+        <div className={'event-banner '+ev.type} key={ev.id}>
+          <div className="event-top">
+            <span className="event-icon">{ev.icon}</span>
+            <span className="event-name">{ev.name}</span>
+            {ev.expiresAt && <span className="event-timer">{formatEventTimer(ev)}</span>}
+            {ev.duration && !ev.expiresAt && <span className="event-timer">{ev.duration}</span>}
+          </div>
+          <div className="event-desc">{ev.desc}</div>
+          <div className="event-effects">
+            {(ev.effects||[]).map((e,i)=><span className="event-effect-tag" key={i}>{e}</span>)}
+          </div>
+        </div>
+      ))}
+    </React.Fragment>
+  );
+}
+
+function EventPanel({ activeEvents }){
+  const upcoming = [...SCHEDULED_EVENTS, ...SEASONAL_EVENTS].filter(ev=>!ev.check());
+  const typeLabel = { scheduled:'Rutin', seasonal:'Musiman', achievement:'Pencapaian' };
+  return (
+    <div className="panel">
+      <div className="section-title">🎉 Event Aktif</div>
+      {(!activeEvents||!activeEvents.length)
+        ? <div className="no-event-msg">Tidak ada event aktif saat ini.<br/>Cek kembali nanti atau raih pencapaian baru!</div>
+        : activeEvents.map(ev=>(
+            <div className={'event-banner '+ev.type} key={ev.id} style={{marginBottom:10}}>
+              <div className="event-top">
+                <span className="event-icon">{ev.icon}</span>
+                <span className="event-name">{ev.name}</span>
+                {ev.expiresAt && <span className="event-timer">{formatEventTimer(ev)}</span>}
+                {ev.duration && !ev.expiresAt && <span className="event-timer">{ev.duration}</span>}
+              </div>
+              <div className="event-desc">{ev.desc}</div>
+              <div className="event-effects">
+                {(ev.effects||[]).map((e,i)=><span className="event-effect-tag" key={i}>{e}</span>)}
+              </div>
+            </div>
+          ))
+      }
+      <div className="section-title" style={{marginTop:20}}>📅 Kalender Event Rutin</div>
+      <div className="event-calendar">
+        {[...SCHEDULED_EVENTS,...SEASONAL_EVENTS].map(ev=>{
+          const isActive = ev.check();
+          return (
+            <div className="event-cal-item" key={ev.id}>
+              <span className="event-cal-icon">{ev.icon}</span>
+              <div className="event-cal-info">
+                <div className="event-cal-name">{ev.name}</div>
+                <div className="event-cal-when">{ev.duration} • {(ev.effects||[]).join(', ')}</div>
+              </div>
+              <span className="event-cal-badge">{isActive?'🟢 Aktif':typeLabel[ev.type]||'Rutin'}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="section-title" style={{marginTop:20}}>⚔️ Event Pencapaian</div>
+      <div className="event-calendar">
+        {ACHIEVEMENT_EVENT_DEFS.map(ev=>(
+          <div className="event-cal-item" key={ev.id}>
+            <span className="event-cal-icon">{ev.icon}</span>
+            <div className="event-cal-info">
+              <div className="event-cal-name">{ev.name}</div>
+              <div className="event-cal-when">{ev.desc}</div>
+            </div>
+            <span className="event-cal-badge">Pencapaian</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ===== SKILL TREE (visualisasi progres Boss Quest) ===== */
+function SkillTreeNode({ quest }){
+  const { current, target } = quest.bossProgress;
+  const nodes = [];
+  for (let i = 0; i < target; i++){
+    const filled = i < current;
+    const isCurrent = i === current;
+    nodes.push(
+      <React.Fragment key={i}>
+        <div className={"skilltree-node" + (filled ? " filled" : "") + (isCurrent ? " current" : "")}>
+          {filled ? '★' : i+1}
+        </div>
+        {i < target - 1 && <div className={"skilltree-line" + (i < current ? " filled" : "")}></div>}
+      </React.Fragment>
+    );
+  }
+  const isComplete = current >= target;
+  return (
+    <div className="skilltree-card">
+      <div className="skilltree-title">
+        <span>{isComplete ? '👑' : '🗺️'}</span>
+        <span>{quest.title}</span>
+      </div>
+      <div className="skilltree-nodes">{nodes}</div>
+      <div className="skilltree-progress-text">
+        {isComplete ? 'Tercapai! Cita-cita besar ini sudah selesai 🎉' : `Progres ${current}/${target} milestone`}
+      </div>
+    </div>
+  );
+}
+
+function SkillTreeSection({ quests }){
+  const bossQuests = quests.filter(q => q.type === 'boss' && q.bossProgress);
+  if (bossQuests.length === 0) return null;
+  return (
+    <div className="panel">
+      <div className="section-title">🗺️ Skill Tree — Cita-cita Besar</div>
+      {bossQuests.map(q => <SkillTreeNode key={q.id} quest={q} />)}
+    </div>
+  );
+}
+function QuestList({ quests, onComplete, onDelete, onAddClick }){
+  const grouped = { daily: [], weekly: [] };
+  quests.forEach(q => { if (q.type === 'daily' || q.type === 'weekly') grouped[q.type].push(q); });
+
+  const typeLabel = { daily: '📅 Daily Quest', weekly: '🗓️ Weekly Quest' };
+  const hasAny = grouped.daily.length > 0 || grouped.weekly.length > 0;
+
+  return (
+    <div className="panel">
+      {['daily','weekly'].map(type => (
+        grouped[type].length > 0 && (
+          <div key={type} style={{marginBottom:18}}>
+            <div className="section-title">{typeLabel[type]}</div>
+            <div className="quest-list">
+              {grouped[type].map(q => (
+                <QuestCard key={q.id} quest={q} onComplete={onComplete} onDelete={onDelete} />
+              ))}
+            </div>
+          </div>
+        )
+      ))}
+      {!hasAny && (
+        <div className="chart-empty">Belum ada quest harian/mingguan. Tambahkan satu untuk mulai bermain!</div>
+      )}
+      <button className="add-quest-btn" onClick={onAddClick}>+ Tambah Quest Baru</button>
+    </div>
+  );
+}
+
+function QuestCard({ quest, onComplete, onDelete }){
+  const s = STATS[quest.statType] || STATS.discipline;
+  return (
+    <div className={"quest-card" + (quest.completedToday ? " done" : "")}>
+      <div
+        className={"quest-check" + (quest.completedToday ? " checked" : "")}
+        onClick={() => !quest.completedToday && onComplete(quest)}
+      >
+        {quest.completedToday ? '✓' : ''}
+      </div>
+      <div className="quest-body">
+        <div className={"quest-title" + (quest.completedToday ? " done" : "")}>{quest.title}</div>
+        <div className="quest-meta">
+          <span className="quest-tag">{s.emoji} {s.label}</span>
+          <span className="quest-reward">+{quest.xp} XP • 🪙+{quest.coin}</span>
+        </div>
+      </div>
+      <button className="quest-del" onClick={() => onDelete(quest.id)} title="Hapus quest">×</button>
+    </div>
+  );
+}
+
+/* ===== ADD QUEST MODAL ===== */
+function AddQuestModal({ onSave, onClose }){
+  const [title, setTitle] = useState('');
+  const [statType, setStatType] = useState('body');
+  const [type, setType] = useState('daily');
+  const [xp, setXp] = useState(50);
+  const [coin, setCoin] = useState(10);
+  const [bossTarget, setBossTarget] = useState(5);
+
+  const handleSubmit = () => {
+    if (!title.trim()) return;
+    const quest = {
+      id: uid(),
+      title: title.trim(),
+      statType,
+      type,
+      xp: Number(xp) || 50,
+      coin: Number(coin) || 10,
+      completedToday: false,
+    };
+    if (type === 'boss'){
+      quest.bossProgress = { current: 0, target: Number(bossTarget) || 5 };
+    }
+    onSave(quest);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <h3>✏️ Buat Quest Baru</h3>
+        <div className="form-group">
+          <label>Nama Quest</label>
+          <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Misal: Lari pagi 20 menit" autoFocus />
+        </div>
+        <div className="form-group">
+          <label>Stat yang dilatih</label>
+          <select value={statType} onChange={e=>setStatType(e.target.value)}>
+            {STAT_KEYS.map(k => <option key={k} value={k}>{STATS[k].emoji} {STATS[k].label}</option>)}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Jenis Quest</label>
+          <select value={type} onChange={e=>setType(e.target.value)}>
+            <option value="daily">📅 Daily — diulang tiap hari</option>
+            <option value="weekly">🗓️ Weekly — target mingguan</option>
+            <option value="boss">👑 Boss — tujuan besar/jangka panjang</option>
+          </select>
+        </div>
+        {type === 'boss' && (
+          <div className="form-group">
+            <label>Berapa kali progres perlu diselesaikan?</label>
+            <input type="number" min="2" value={bossTarget} onChange={e=>setBossTarget(e.target.value)} />
+          </div>
+        )}
+        <div className="form-group">
+          <label>Reward XP</label>
+          <input type="number" min="10" value={xp} onChange={e=>setXp(e.target.value)} />
+        </div>
+        <div className="form-group">
+          <label>Reward Coin</label>
+          <input type="number" min="0" value={coin} onChange={e=>setCoin(e.target.value)} />
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>Batal</button>
+          <button className="btn btn-primary" onClick={handleSubmit}>Buat Quest</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== TAB NAVIGATION ===== */
+function TabNav({ active, onChange }){
+  const tabs = [
+    { id:'quests',  icon:'⚔️', label:'Quest'      },
+    { id:'events',  icon:'🎉', label:'Event'      },
+    { id:'rivals',  icon:'👥', label:'Rival'      },
+    { id:'stats',   icon:'📈', label:'Statistik'  },
+    { id:'journey', icon:'📜', label:'Riwayat'    },
+    { id:'journal', icon:'📖', label:'Jurnal'     },
+    { id:'badges',  icon:'🏆', label:'Trofi'      },
+    { id:'shop',    icon:'🎁', label:'Hadiah'     },
+    { id:'backup',  icon:'💾', label:'Backup'     },
+  ];
+  return (
+    <div className="tab-nav">
+      {tabs.map(t => (
+        <button
+          key={t.id}
+          className={"tab-btn" + (active===t.id ? " active" : "")}
+          onClick={() => onChange(t.id)}
+        >
+          <span style={{fontSize:18}}>{t.icon}</span>
+          <span>{t.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ===== HALL OF FAME (Badges) ===== */
+function HallOfFame({ unlockedIds }){
+  const unlockedSet = new Set(unlockedIds);
+  const unlockedCount = BADGES.filter(b => unlockedSet.has(b.id)).length;
+  return (
+    <div className="panel">
+      <div className="section-title">🏆 Hall of Fame</div>
+      <div className="progress-summary">
+        <span>Trofi & medali yang kamu kumpulkan</span>
+        <span><strong>{unlockedCount}</strong> / {BADGES.length}</span>
+      </div>
+      <div className="badge-grid">
+        {BADGES.map(b => {
+          const unlocked = unlockedSet.has(b.id);
+          return (
+            <div className={"badge-item " + (unlocked ? "unlocked" : "locked")} key={b.id}>
+              <div className="badge-emoji">{unlocked ? b.emoji : '🔒'}</div>
+              <div className="badge-name">{b.name}</div>
+              <div className="badge-desc">{b.desc}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ===== STATS PANEL (grafik & heatmap) ===== */
+function aggregateByDate(log, days){
+  const today = new Date();
+  const dates = [];
+  for (let i = days - 1; i >= 0; i--){
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().slice(0,10));
+  }
+  const byDate = {};
+  dates.forEach(d => { byDate[d] = { date:d, body:0, mind:0, career:0, social:0, discipline:0, total:0 }; });
+  log.forEach(entry => {
+    if (byDate[entry.date]){
+      byDate[entry.date][entry.statType] = (byDate[entry.date][entry.statType]||0) + entry.xp;
+      byDate[entry.date].total += entry.xp;
+    }
+  });
+  return dates.map(d => byDate[d]);
+}
+
+function LineChart({ data, visibleStats }){
+  const width = 580, height = 220;
+  const pad = { top:16, right:12, bottom:28, left:46 };
+  const innerW = width - pad.left - pad.right;
+  const innerH = height - pad.top - pad.bottom;
+
+  const maxVal = Math.max(50, ...data.map(d => Math.max(...STAT_KEYS.map(k => visibleStats.includes(k) ? d[k] : 0))));
+  // Bulatkan maxVal ke angka cantik untuk sumbu Y
+  const yMax = Math.ceil(maxVal / 50) * 50;
+  const stepX = data.length > 1 ? innerW / (data.length - 1) : 0;
+
+  const toY = (val) => pad.top + innerH - (val / yMax) * innerH;
+  const toX = (i) => pad.left + i * stepX;
+  const linePath = (key) => data.map((d,i) => `${i===0?'M':'L'} ${toX(i).toFixed(1)} ${toY(d[key]).toFixed(1)}`).join(' ');
+
+  const labelEvery = Math.ceil(data.length / 6);
+  // Sumbu Y: 5 garis pembagi
+  const yTicks = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <div className="chart-svg-wrap">
+      <svg viewBox={`0 0 ${width} ${height}`} width="100%" style={{minWidth:340}}>
+        {/* Grid horizontal + label sumbu Y */}
+        {yTicks.map((p,i) => {
+          const yVal = Math.round(yMax * p);
+          const yPos = toY(yMax * p);
+          return (
+            <React.Fragment key={i}>
+              <line x1={pad.left} x2={width-pad.right} y1={yPos} y2={yPos}
+                stroke="#1E4068" strokeWidth="1" opacity="0.7"
+                strokeDasharray={p===0?'none':'3,3'} />
+              <text x={pad.left-6} y={yPos+3} fontSize="9" fill="#6A9BBF" textAnchor="end">
+                {yVal}
+              </text>
+            </React.Fragment>
+          );
+        })}
+        {/* Label sumbu Y (judul) */}
+        <text x={10} y={pad.top + innerH/2} fontSize="9" fill="#6A9BBF" textAnchor="middle"
+          transform={`rotate(-90, 10, ${pad.top + innerH/2})`}>XP</text>
+        {/* Garis per stat dengan area fill */}
+        {STAT_KEYS.filter(k => visibleStats.includes(k)).map(key => {
+          const s = STATS[key];
+          const areaPath = data.map((d,i) =>
+            `${i===0?'M':'L'} ${toX(i).toFixed(1)} ${toY(d[key]).toFixed(1)}`
+          ).join(' ') + ` L ${toX(data.length-1).toFixed(1)} ${toY(0).toFixed(1)} L ${toX(0).toFixed(1)} ${toY(0).toFixed(1)} Z`;
+          return (
+            <React.Fragment key={key}>
+              <path d={areaPath} fill={s.color} opacity="0.06" />
+              <path d={linePath(key)} fill="none" stroke={s.color} strokeWidth="2"
+                strokeLinejoin="round" strokeLinecap="round" />
+              {/* dot di setiap data point */}
+              {data.map((d,i) => d[key]>0 && (
+                <circle key={i} cx={toX(i)} cy={toY(d[key])} r="2.5" fill={s.color} opacity="0.8" />
+              ))}
+            </React.Fragment>
+          );
+        })}
+        {/* Label sumbu X (tanggal) */}
+        {data.map((d,i) => i % labelEvery === 0 && (
+          <text key={i} x={toX(i)} y={height-8} fontSize="9" fill="#6A9BBF" textAnchor="middle">
+            {d.date.slice(5)}
+          </text>
+        ))}
+        {/* Border kiri dan bawah grafik */}
+        <line x1={pad.left} x2={pad.left} y1={pad.top} y2={height-pad.bottom} stroke="#1E4068" strokeWidth="1" />
+        <line x1={pad.left} x2={width-pad.right} y1={height-pad.bottom} y2={height-pad.bottom} stroke="#1E4068" strokeWidth="1" />
+      </svg>
+    </div>
+  );
+}
+
+function Heatmap({ log }){
+  const today = new Date();
+  const days = 84; // 12 minggu
+  const cells = [];
+  for (let i = days - 1; i >= 0; i--){
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0,10);
+    const xp = log.filter(e => e.date === dateStr).reduce((s,e) => s + e.xp, 0);
+    cells.push({ date: dateStr, xp });
+  }
+  // susun jadi kolom per minggu (7 baris)
+  const cols = [];
+  for (let i = 0; i < cells.length; i += 7){
+    cols.push(cells.slice(i, i+7));
+  }
+  const intensity = (xp) => {
+    if (xp <= 0) return 'rgba(14,165,233,0.06)';
+    if (xp < 50) return 'rgba(14,165,233,0.3)';
+    if (xp < 150) return 'rgba(14,165,233,0.55)';
+    return 'rgba(14,165,233,0.9)';
+  };
+  return (
+    <div className="heatmap-wrap">
+      <div className="heatmap-grid">
+        {cols.map((col, i) => (
+          <div className="heatmap-col" key={i}>
+            {col.map((c,j) => (
+              <div key={j} className="heatmap-cell" style={{background: intensity(c.xp)}} title={`${c.date}: ${c.xp} XP`}></div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="heatmap-legend">
+        <span>Sedikit</span>
+        <div className="heatmap-cell" style={{background:'rgba(14,165,233,0.06)'}}></div>
+        <div className="heatmap-cell" style={{background:'rgba(14,165,233,0.3)'}}></div>
+        <div className="heatmap-cell" style={{background:'rgba(14,165,233,0.55)'}}></div>
+        <div className="heatmap-cell" style={{background:'rgba(14,165,233,0.9)'}}></div>
+        <span>Banyak</span>
+      </div>
+    </div>
+  );
+}
+
+function StatsPanel({ xpLog }){
+  const [range, setRange] = useState(30); // 7, 30, 90 hari
+  const [visibleStats, setVisibleStats] = useState(STAT_KEYS);
+
+  const data = useMemo(() => aggregateByDate(xpLog, range), [xpLog, range]);
+  const hasAnyData = xpLog.length > 0;
+
+  const toggleStat = (key) => {
+    setVisibleStats(prev => prev.includes(key) ? prev.filter(k=>k!==key) : [...prev, key]);
+  };
+
+  const totalThisRange = data.reduce((s,d) => s + d.total, 0);
+
+  return (
+    <div className="panel">
+      <div className="section-title">📈 Statistik Perkembangan</div>
+
+      {!hasAnyData ? (
+        <div className="chart-empty">Belum ada data. Selesaikan beberapa quest dulu untuk melihat grafik perkembanganmu di sini! 🌱</div>
+      ) : (
+        <React.Fragment>
+          <div className="progress-summary">
+            <span>Total XP {range} hari terakhir</span>
+            <span><strong>{totalThisRange}</strong> XP</span>
+          </div>
+          <div className="range-toggle">
+            {[7,30,90].map(r => (
+              <button key={r} className={"tab-btn" + (range===r ? " active":"")} onClick={()=>setRange(r)}>{r} Hari</button>
+            ))}
+          </div>
+          <div className="chart-legend">
+            {STAT_KEYS.map(k => (
+              <div key={k} className={"legend-item" + (visibleStats.includes(k) ? "" : " off")} onClick={()=>toggleStat(k)}>
+                <span className="legend-dot" style={{background:STATS[k].color}}></span>
+                <span>{STATS[k].emoji} {STATS[k].label}</span>
+              </div>
+            ))}
+          </div>
+          <LineChart data={data} visibleStats={visibleStats} />
+        </React.Fragment>
+      )}
+
+      <div style={{marginTop: 22}}>
+        <div className="section-title" style={{fontSize:13}}>🗓️ Peta Konsistensi (12 Minggu)</div>
+        <Heatmap log={xpLog} />
+      </div>
+    </div>
+  );
+}
+
+/* ===== REWARD SHOP (custom reward dibeli pakai Coin) ===== */
+function RewardShop({ rewards, coins, onBuy, onAddClick, onDelete }){
+  return (
+    <div className="panel">
+      <div className="section-title">🎁 Toko Hadiah</div>
+      <div className="progress-summary">
+        <span>Tukar coin-mu dengan hadiah nyata buat dirimu sendiri</span>
+        <span>🪙 <strong>{coins}</strong></span>
+      </div>
+      {rewards.length === 0 ? (
+        <div className="chart-empty">Belum ada hadiah. Tambahkan hadiah yang ingin kamu beri ke diri sendiri setiap mencapai target coin tertentu! 🎁</div>
+      ) : (
+        <div className="reward-list">
+          {rewards.map(r => (
+            <div className={"reward-card" + (r.claimed ? " claimed" : "")} key={r.id}>
+              <div className="reward-icon">{r.claimed ? '✅' : '🎁'}</div>
+              <div className="reward-info">
+                <div className="reward-name">{r.name}</div>
+                <div className="reward-cost">🪙 {r.costCoin} coin</div>
+              </div>
+              {r.claimed ? (
+                <span className="reward-claimed-tag">Sudah diklaim</span>
+              ) : (
+                <button className="reward-buy-btn" disabled={coins < r.costCoin} onClick={() => onBuy(r)}>
+                  {coins < r.costCoin ? 'Belum cukup' : 'Klaim'}
+                </button>
+              )}
+              <button className="quest-del" onClick={() => onDelete(r.id)} title="Hapus">×</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <button className="add-quest-btn" onClick={onAddClick}>+ Tambah Hadiah Baru</button>
+    </div>
+  );
+}
+
+function AddRewardModal({ onSave, onClose }){
+  const [name, setName] = useState('');
+  const [cost, setCost] = useState(100);
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+    onSave({ id: uid(), name: name.trim(), costCoin: Number(cost) || 100, claimed: false });
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <h3>🎁 Tambah Hadiah</h3>
+        <div className="form-group">
+          <label>Nama Hadiah</label>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Misal: Beli sepatu baru" autoFocus />
+        </div>
+        <div className="form-group">
+          <label>Biaya (Coin)</label>
+          <input type="number" min="10" value={cost} onChange={e=>setCost(e.target.value)} />
+        </div>
+        <div className="modal-actions">
+          <button className="btn btn-secondary" onClick={onClose}>Batal</button>
+          <button className="btn btn-primary" onClick={handleSubmit}>Simpan</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===== RIVAL PANEL ===== */
+function RivalPanel({ rivals, character }){
+  const [selected, setSelected] = useState(null);
+  const myTotalXP = STAT_KEYS.reduce((s,k)=>s+(character.stats[k]||0),0);
+  const myLevel = xpToLevel(myTotalXP).level;
+  const me = { id:'me', name:'Kamu', emoji:'🌱', totalXP:myTotalXP, level:myLevel, streak:character.streak, stats:character.stats, isMe:true, todayXP:0 };
+  const all = [...rivals, me].sort((a,b)=>b.totalXP-a.totalXP);
+  const myRank = all.findIndex(r=>r.id==='me') + 1;
+
+  if(selected){
+    const r = rivals.find(x=>x.id===selected);
+    if(!r) return null;
+    const rl = xpToLevel(r.totalXP).level;
+    const diff = r.totalXP - myTotalXP;
+    const personalityDesc = {
+      consistent:'Rajin setiap hari, tidak pernah absen.',
+      nightowl:'Aktif di akhir pekan, loyo di hari kerja.',
+      sprinter:'Meledak di awal bulan, melemah di akhir bulan.',
+      studious:'Fokus total di hari kerja, istirahat di weekend.',
+      steady:'Lambat tapi pasti, tidak pernah skip.',
+      chaotic:'Tidak bisa ditebak — bisa sangat rajin atau sangat malas.',
+      competitive:'Selalu aktif, terutama saat ada event.',
+      intellectual:'Aktif di weekend, spesialis stat Mind.',
+      athlete:'Kuat di weekend, spesialis Body.',
+      balanced:'Merata di semua stat, tidak ada kelemahan jelas.',
+    };
+    return (
+      <div className="panel">
+        <button onClick={()=>setSelected(null)} style={{background:'none',border:'none',color:'var(--muted)',cursor:'pointer',fontSize:13,marginBottom:14,padding:0}}>← Kembali ke Leaderboard</button>
+        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:16}}>
+          <div style={{width:62,height:62,borderRadius:'50%',background:`linear-gradient(135deg,${r.grad[0]},${r.grad[1]})`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,flexShrink:0,boxShadow:`0 0 18px ${r.grad[0]}55`}}>{r.emoji}</div>
+          <div>
+            <div style={{fontSize:17,fontWeight:700,color:'var(--text)'}}>{r.name}</div>
+            <div style={{fontSize:11,color:'var(--muted)',marginTop:2}}>{r.desc}</div>
+            <div style={{display:'flex',gap:8,marginTop:5}}>
+              <span style={{fontSize:11,background:'rgba(14,165,233,0.12)',border:'1px solid rgba(14,165,233,0.3)',color:'var(--cyan-light)',padding:'2px 8px',borderRadius:10}}>LV {rl}</span>
+              <span style={{fontSize:11,color:'var(--muted)'}}>🔥 {r.streak} hari</span>
+              <span style={{fontSize:11,color:'var(--amber)'}}>+{r.todayXP||0} XP hari ini</span>
+            </div>
+          </div>
+        </div>
+        <div style={{background:'rgba(14,165,233,0.06)',border:'1px solid var(--border)',borderRadius:10,padding:'10px 14px',marginBottom:12}}>
+          <div style={{fontSize:11,color:'var(--muted)',marginBottom:4}}>Selisih XP denganmu</div>
+          <div style={{fontSize:22,fontWeight:700,color:diff>0?'var(--danger)':'var(--green)'}}>
+            {diff>0?'▼ −'+diff.toLocaleString():diff<0?'▲ +'+Math.abs(diff).toLocaleString():'= Seimbang'}
+          </div>
+          <div style={{fontSize:11,color:'var(--muted)',marginTop:3}}>Total: {r.totalXP.toLocaleString()} XP</div>
+        </div>
+        <div style={{fontSize:12,color:'var(--cyan-light)',fontWeight:600,marginBottom:8}}>Stat Detail</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:12}}>
+          {STAT_KEYS.map(k=>{
+            const s=STATS[k]; const lv=xpToLevel(r.stats[k]||0);
+            return (
+              <div key={k} style={{background:s.colorAlpha,border:`1px solid ${s.color}40`,borderRadius:9,padding:'8px 10px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',fontSize:11,marginBottom:5}}>
+                  <span style={{color:s.colorLight}}>{s.emoji} {s.label}</span>
+                  <span style={{color:s.color,fontWeight:600}}>Lv{lv.level}</span>
+                </div>
+                <div style={{height:5,background:'var(--bg-deep)',borderRadius:4,overflow:'hidden'}}>
+                  <div style={{height:'100%',borderRadius:4,width:Math.round(lv.progress*100)+'%',background:`linear-gradient(90deg,${s.color},${s.colorLight})`}}></div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{background:'rgba(167,139,250,0.08)',border:'1px solid rgba(167,139,250,0.25)',borderRadius:10,padding:'10px 14px'}}>
+          <div style={{fontSize:11,color:'var(--purple-light)',fontWeight:600,marginBottom:3}}>Gaya Bermain</div>
+          <div style={{fontSize:12,color:'var(--muted)',lineHeight:1.6}}>{personalityDesc[r.personality]||'-'}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="panel">
+      <div className="section-title">👥 Rival Anonim — Leaderboard</div>
+      <div style={{fontSize:12,color:'var(--muted)',marginBottom:14}}>
+        Posisimu: <span style={{color:'var(--cyan-light)',fontWeight:700}}>#{myRank}</span> dari {all.length} petualang
+        <span style={{color:'var(--border)',margin:'0 6px'}}>•</span>
+        <span style={{color:'var(--muted)'}}>Klik rival untuk lihat profil</span>
+      </div>
+      {all.map((r,i)=>{
+        const isMe = r.id==='me';
+        const rank = i+1;
+        const rankColor = rank===1?'#FCD34D':rank===2?'#C0C0C0':rank===3?'#CD7F32':'var(--muted)';
+        const diff = r.totalXP - myTotalXP;
+        return (
+          <div key={r.id}
+            onClick={()=>!isMe&&setSelected(r.id)}
+            style={{display:'flex',alignItems:'center',gap:11,padding:'11px 13px',borderRadius:10,
+              background:isMe?'rgba(14,165,233,0.08)':'rgba(0,0,0,0.15)',
+              border:isMe?'1px solid rgba(14,165,233,0.4)':'1px solid var(--border)',
+              marginBottom:8, cursor:isMe?'default':'pointer', transition:'all 0.2s'}}>
+            <div style={{fontSize:13,fontWeight:700,color:rankColor,width:22,textAlign:'center',flexShrink:0}}>#{rank}</div>
+            <div style={{width:36,height:36,borderRadius:'50%',
+              background:isMe?'linear-gradient(135deg,#0EA5E9,#2DD4BF)':`linear-gradient(135deg,${r.grad[0]},${r.grad[1]})`,
+              display:'flex',alignItems:'center',justifyContent:'center',fontSize:17,flexShrink:0,
+              boxShadow:isMe?'0 0 10px rgba(14,165,233,0.4)':'none'}}>
+              {isMe?'🌱':r.emoji}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,color:'var(--text)',fontWeight:600}}>
+                {r.name}{isMe&&<span style={{fontSize:10,color:'var(--cyan)',marginLeft:5}}>(kamu)</span>}
+              </div>
+              <div style={{fontSize:10,color:'var(--muted)',marginTop:2}}>
+                Lv {xpToLevel(r.totalXP).level} • {r.totalXP.toLocaleString()} XP • 🔥{r.streak}
+              </div>
+            </div>
+            {!isMe&&(
+              <div style={{textAlign:'right',flexShrink:0}}>
+                <div style={{fontSize:11,fontWeight:700,color:diff>0?'var(--danger)':'var(--green)'}}>
+                  {diff>0?'▼ −'+diff.toLocaleString():'▲ +'+Math.abs(diff).toLocaleString()}
+                </div>
+                <div style={{fontSize:9,color:'var(--muted)',marginTop:1}}>XP dari kamu</div>
+              </div>
+            )}
+            {!isMe&&<span style={{fontSize:18,color:'var(--border)',flexShrink:0}}>›</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ===== RIWAYAT PERJALANAN ===== */
+function JourneyPanel({ journey, character }){
+  if(!journey||!character) return null;
+  const startDate = character.createdAt || journey[0]?.date || todayStr();
+  const daysSince = Math.max(1, Math.round((new Date()-new Date(startDate))/86400000));
+  const totalXP = STAT_KEYS.reduce((s,k)=>s+(character.stats[k]||0),0);
+  const overallLevel = xpToLevel(totalXP).level;
+
+  const iconMap = {
+    start:'🌰', level_up:'⭐', avatar_evolve:'🌿', badge:'🏅',
+    boss_done:'👑', streak_milestone:'🔥', comeback:'⚔️', event:'🎉',
+  };
+
+  return (
+    <div className="panel">
+      <div className="section-title">📜 Riwayat Perjalanan</div>
+      <div className="journey-start">
+        <div className="js-date">Dimulai pada {startDate}</div>
+        <div className="js-title">Petualanganmu dimulai 🌰</div>
+        <div className="js-days">Hari ke-{daysSince} • Level {overallLevel} • {totalXP} XP total</div>
+      </div>
+      {journey.length===0
+        ? <div className="journey-empty">Langkah besar pertamamu akan muncul di sini.<br/>Teruslah bermain! 🌱</div>
+        : (
+          <div className="timeline">
+            {journey.slice().reverse().map((item,i)=>{
+              const isBig = item.type==='avatar_evolve'||item.type==='boss_done'||item.type==='streak_milestone';
+              return (
+                <div className="timeline-item" key={i}>
+                  <div className={'timeline-dot'+(isBig?' big':'')}>
+                    {iconMap[item.type]||'•'}
+                  </div>
+                  <div className={'timeline-content'+(isBig?' highlight':'')}>
+                    <div className="timeline-date">{item.date}</div>
+                    <div className="timeline-title">{item.title}</div>
+                    {item.sub && <div className="timeline-sub">{item.sub}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      }
+    </div>
+  );
+}
+
+/* ===== JOURNAL ===== */
+function sumXPInRange(log, startDaysAgo, endDaysAgo){
+  const now = new Date();
+  const start = new Date(now); start.setDate(start.getDate() - startDaysAgo);
+  const end = new Date(now); end.setDate(end.getDate() - endDaysAgo);
+  return log.filter(e => {
+    const d = new Date(e.date);
+    return d >= start && d < end;
+  }).reduce((s,e) => s + e.xp, 0);
+}
+
+function generateAutoSummary(xpLog){
+  const thisWeek = sumXPInRange(xpLog, 7, 0);
+  const lastWeek = sumXPInRange(xpLog, 14, 7);
+
+  const statTotalsThisWeek = {};
+  STAT_KEYS.forEach(k => { statTotalsThisWeek[k] = 0; });
+  const now = new Date(); const start = new Date(now); start.setDate(start.getDate()-7);
+  xpLog.forEach(e => {
+    const d = new Date(e.date);
+    if (d >= start && d <= now) statTotalsThisWeek[e.statType] = (statTotalsThisWeek[e.statType]||0) + e.xp;
+  });
+  const sorted = STAT_KEYS.slice().sort((a,b) => statTotalsThisWeek[b]-statTotalsThisWeek[a]);
+  const top = sorted[0];
+  const bottom = sorted[sorted.length-1];
+
+  let trend = '';
+  if (lastWeek === 0 && thisWeek === 0){
+    trend = 'Minggu ini belum ada aktivitas tercatat. Yuk mulai dari satu quest kecil saja!';
+  } else if (thisWeek > lastWeek){
+    trend = `Kamu naik dari ${lastWeek} XP minggu lalu menjadi ${thisWeek} XP minggu ini — progres yang nyata!`;
+  } else if (thisWeek < lastWeek){
+    trend = `Minggu ini ${thisWeek} XP, sedikit lebih rendah dari ${lastWeek} XP minggu lalu. Tidak masalah, ini bagian dari ritme — yang penting tetap lanjut.`;
+  } else {
+    trend = `Konsisten di angka yang sama dengan minggu lalu (${thisWeek} XP). Stabil itu juga progres.`;
+  }
+
+  let focus = '';
+  if (statTotalsThisWeek[top] > 0){
+    focus = ` ${STATS[top].label} ${STATS[top].emoji} paling berkembang minggu ini, sementara ${STATS[bottom].label} ${STATS[bottom].emoji} masih bisa lebih diperhatikan.`;
+  }
+
+  return trend + focus;
+}
+
+function JournalPanel({ xpLog, reflections, onSaveNote }){
+  const [noteDraft, setNoteDraft] = useState('');
+  const thisWeek = sumXPInRange(xpLog, 7, 0);
+  const lastWeek = sumXPInRange(xpLog, 14, 7);
+  const delta = thisWeek - lastWeek;
+  const autoSummary = useMemo(() => generateAutoSummary(xpLog), [xpLog]);
+
+  const handleSaveNote = () => {
+    if (!noteDraft.trim()) return;
+    onSaveNote(noteDraft.trim());
+    setNoteDraft('');
+  };
+
+  return (
+    <div className="panel">
+      <div className="section-title">📖 Jurnal & Refleksi</div>
+
+      <div className="versus-grid">
+        <div className="versus-col">
+          <div className="vlabel">Minggu Lalu</div>
+          <div className="vvalue">{lastWeek}</div>
+        </div>
+        <div className="versus-vs">vs</div>
+        <div className="versus-col">
+          <div className="vlabel">Minggu Ini</div>
+          <div className="vvalue">{thisWeek}</div>
+        </div>
+      </div>
+      {xpLog.length > 0 && (
+        <div className={"versus-delta " + (delta >= 0 ? "up" : "down")} style={{marginTop:-8, marginBottom:18}}>
+          {delta >= 0 ? `▲ +${delta} XP dibanding minggu lalu` : `▼ ${delta} XP dibanding minggu lalu`}
+        </div>
+      )}
+
+      <div className="reflection-card">
+        <div className="reflection-date">Ringkasan Otomatis</div>
+        <div className="reflection-summary">{autoSummary}</div>
+        <textarea
+          className="reflection-note-input"
+          placeholder="Tulis refleksimu sendiri di sini (opsional)... Apa yang membantumu minggu ini? Apa yang ingin diperbaiki?"
+          value={noteDraft}
+          onChange={e => setNoteDraft(e.target.value)}
+        />
+        <button className="reflection-save-btn" onClick={handleSaveNote}>Simpan Refleksi</button>
+      </div>
+
+      {reflections.length > 0 && (
+        <React.Fragment>
+          <div className="section-title" style={{fontSize:13, marginTop:18}}>Catatan Sebelumnya</div>
+          {reflections.slice().reverse().map((r, i) => (
+            <div className="reflection-card" key={i}>
+              <div className="reflection-date">{r.date}</div>
+              <div className="reflection-summary">{r.userNote}</div>
+            </div>
+          ))}
+        </React.Fragment>
+      )}
+    </div>
+  );
+}
+
+/* ===== EXPORT / IMPORT BACKUP ===== */
+function BackupPanel({ onImportSuccess, syncStatus, setSyncStatus }){
+  const [importStatus, setImportStatus] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [syncing, setSyncing] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleExport = () => {
+    const allKeys = ['character','quests_active','badges_unlocked','xp_log','rewards_custom','reflections','active_achiev_events','journey_log'];
+    const data = {};
+    allKeys.forEach(k => { data[k] = lsGet(k); });
+    data._exportedAt = new Date().toISOString();
+    data._version = '1.0';
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `liferpg-backup-${todayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try{
+        const data = JSON.parse(evt.target.result);
+        if(!data.character) throw new Error('File tidak valid');
+        const keys = ['character','quests_active','badges_unlocked','xp_log','rewards_custom','reflections','active_achiev_events','journey_log'];
+        keys.forEach(k => { if(data[k]!==undefined && data[k]!==null){ lsSet(k, data[k]); markPending(k); } });
+        setImportStatus('success');
+        setTimeout(()=>{ onImportSuccess(); }, 1200);
+      }catch(err){
+        setImportStatus('error');
+        setTimeout(()=>setImportStatus(null), 3000);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleManualSync = async () => {
+    setSyncing(true);
+    setSyncStatus('syncing');
+    const result = await syncToSheets();
+    setSyncing(false);
+    setSyncStatus(result.success ? 'synced' : 'offline');
+  };
+
+  const handleDeleteAll = async () => {
+    if(deleteConfirmText !== 'HAPUS') return;
+    // Hapus localStorage
+    SYNC_KEYS.forEach(k => { localStorage.removeItem('liferpg_' + k); });
+    localStorage.removeItem(PENDING_KEY);
+    // Hapus di Sheets
+    await clearSheetsData();
+    setShowDeleteConfirm(false);
+    setTimeout(()=>window.location.reload(), 500);
+  };
+
+  const syncLabel = {
+    idle: '☁️ Belum disync',
+    syncing: '🔄 Menyinkronkan...',
+    synced: '✅ Tersimpan di Sheets',
+    offline: '📴 Offline — akan sync saat online',
+    error: '⚠️ Sync gagal',
+  };
+  const syncColor = {
+    idle:'var(--muted)', syncing:'var(--cyan-light)', synced:'var(--green)',
+    offline:'var(--amber)', error:'var(--danger)',
+  };
+
+  return (
+    <div className="panel">
+      <div className="section-title">💾 Backup & Data</div>
+      <div className="backup-section">
+
+        {/* Status Sync */}
+        <div className="backup-card" style={{background:'rgba(14,165,233,0.05)',borderColor:'rgba(14,165,233,0.2)'}}>
+          <h4 style={{color:'var(--cyan-light)'}}>☁️ Google Sheets Sync</h4>
+          <p>Datamu tersinkronisasi otomatis ke Google Sheets setiap ada perubahan. Saat offline, data akan terkirim begitu kamu kembali online.</p>
+          <div style={{fontSize:12,color:syncColor[syncStatus]||'var(--muted)',marginBottom:10,fontWeight:600}}>
+            {syncLabel[syncStatus]||'—'}
+          </div>
+          <button className="backup-btn" style={{background:'rgba(14,165,233,0.15)',border:'1px solid rgba(14,165,233,0.4)',color:'var(--cyan-light)'}}
+            onClick={handleManualSync} disabled={syncing}>
+            {syncing ? '🔄 Menyinkronkan...' : '🔄 Sync Sekarang ke Sheets'}
+          </button>
+        </div>
+
+        {/* Export */}
+        <div className="backup-card">
+          <h4>📥 Download Backup</h4>
+          <p>Unduh semua datamu ke file kecil (.json). Simpan di Google Drive atau folder HP sebagai cadangan tambahan.</p>
+          <button className="backup-btn export" onClick={handleExport}>⬇️ Download Backup (.json)</button>
+        </div>
+
+        {/* Import */}
+        <div className="backup-card">
+          <h4>📤 Pulihkan dari Backup</h4>
+          <p>Upload file backup .json untuk memulihkan semua progresmu. Cocok setelah ganti HP atau install ulang browser.</p>
+          <button className="backup-btn import" onClick={()=>fileInputRef.current?.click()}>⬆️ Upload File Backup (.json)</button>
+          <input ref={fileInputRef} type="file" accept=".json" style={{display:'none'}} onChange={handleImport} />
+          {importStatus==='success' && <div className="backup-success">✅ Data berhasil dipulihkan! Memuat ulang...</div>}
+          {importStatus==='error' && <div className="backup-warning">❌ File tidak valid. Coba file backup yang lain.</div>}
+        </div>
+
+        {/* Hapus Semua Data */}
+        <div className="backup-card" style={{background:'rgba(248,113,113,0.05)',border:'1px solid rgba(248,113,113,0.25)'}}>
+          <h4 style={{color:'var(--danger)'}}>🗑️ Hapus Semua Data</h4>
+          <p style={{color:'var(--muted)'}}>Hapus seluruh progres dari browser dan Google Sheets. Aksi ini tidak bisa dibatalkan. Pastikan sudah download backup sebelum menghapus.</p>
+          {!showDeleteConfirm ? (
+            <button className="backup-btn" style={{background:'rgba(248,113,113,0.15)',border:'1px solid rgba(248,113,113,0.4)',color:'var(--danger)'}}
+              onClick={()=>setShowDeleteConfirm(true)}>
+              🗑️ Hapus Semua Data
+            </button>
+          ) : (
+            <div style={{marginTop:8}}>
+              <div style={{fontSize:12,color:'var(--danger)',marginBottom:8,lineHeight:1.6}}>
+                ⚠️ Semua data akan hilang permanen termasuk di Google Sheets.<br/>
+                Ketik <strong>HAPUS</strong> untuk konfirmasi:
+              </div>
+              <input
+                value={deleteConfirmText}
+                onChange={e=>setDeleteConfirmText(e.target.value)}
+                placeholder="Ketik HAPUS di sini"
+                style={{width:'100%',background:'#06111E',border:'1px solid rgba(248,113,113,0.5)',color:'var(--danger)',padding:'9px 11px',borderRadius:8,fontSize:14,marginBottom:8}}
+              />
+              <div style={{display:'flex',gap:8}}>
+                <button className="backup-btn" style={{background:'transparent',border:'1px solid var(--border)',color:'var(--muted)'}}
+                  onClick={()=>{setShowDeleteConfirm(false);setDeleteConfirmText('');}}>
+                  Batal
+                </button>
+                <button className="backup-btn" style={{
+                  background:deleteConfirmText==='HAPUS'?'var(--danger)':'rgba(248,113,113,0.15)',
+                  border:'1px solid rgba(248,113,113,0.4)',color:deleteConfirmText==='HAPUS'?'#fff':'var(--danger)',
+                  opacity:deleteConfirmText==='HAPUS'?1:0.5,
+                  cursor:deleteConfirmText==='HAPUS'?'pointer':'not-allowed'}}
+                  onClick={handleDeleteAll} disabled={deleteConfirmText!=='HAPUS'}>
+                  ✅ Ya, Hapus Semua
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{fontSize:11,color:'var(--muted)',textAlign:'center',lineHeight:1.6,padding:'4px 0'}}>
+          Data tersimpan di browser ini + Google Sheets.<br/>Disarankan download backup seminggu sekali.
+        </div>
+      </div>
+    </div>
+  );
+}
+function App(){
+  const { character, quests, badges, loading, error, syncStatus, setSyncStatus, saveCharacter, saveQuests, saveBadges } = useCharacterData();
+  const [toasts, setToasts] = useState([]);
+  const [bumpAvatar, setBumpAvatar] = useState(false);
+  const [showAddQuest, setShowAddQuest] = useState(false);
+  const [activeTab, setActiveTab] = useState('quests');
+  const [xpLog, setXpLog] = useState([]);
+  const [rewards, setRewards] = useState([]);
+  const [showAddReward, setShowAddReward] = useState(false);
+  const [reflections, setReflections] = useState([]);
+  const [activeAchievEvents, setActiveAchievEvents] = useState([]);
+  const [journey, setJourney] = useState([]);
+  const [rivals, setRivals] = useState([]);
+  const toastIdRef = useRef(0);
+
+  useEffect(() => {
+    setXpLog(fetchXPLog());
+    setRewards(fetchRewards());
+    setReflections(fetchReflections());
+    setActiveAchievEvents(fetchActiveAchievEvents());
+    setJourney(fetchJourney());
+    setRivals(fetchRivals());
+    // Mulai auto-sync setiap 30 detik
+    startAutoSync(()=>setSyncStatus('synced'));
+  }, []);
+
+  const pushToast = useCallback((toast) => {
+    const id = ++toastIdRef.current;
+    setToasts(prev => [...prev, { ...toast, id }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3200);
+  }, []);
+
+  // reset quest harian jika hari sudah berganti
+  useEffect(() => {
+    if (!character || !quests) return;
+    const today = todayStr();
+    if (character.lastActiveDate && character.lastActiveDate !== today){
+      saveQuests(prev => prev.map(q => q.type === 'daily' ? { ...q, completedToday: false } : q));
+
+      saveCharacter(prev => {
+        let streak = prev.streak;
+        let freezes = prev.streakFreezes;
+        const diffDays = Math.round((new Date(today) - new Date(prev.lastActiveDate)) / 86400000);
+        if (diffDays > 1){
+          if (freezes > 0){
+            freezes -= 1; // pakai freeze otomatis, streak tetap aman
+          } else {
+            streak = 0; // streak putus
+          }
+        }
+        return { ...prev, streakFreezes: freezes, streak, lastActiveDate: today };
+      });
+    } else if (!character.lastActiveDate){
+      saveCharacter(prev => ({ ...prev, lastActiveDate: today }));
+    }
+  }, [character?.lastActiveDate, quests === null]);
+
+  const checkAndUnlockBadges = useCallback((updatedCharacter) => {
+    if (!badges) return;
+    const overallLevel = xpToLevel(STAT_KEYS.reduce((s,k)=> s + (updatedCharacter.stats[k]||0), 0)).level;
+    const ctx = {
+      character: updatedCharacter,
+      overallLevel,
+      questsCompletedTotal: updatedCharacter.questsCompletedTotal || 0,
+      bossesCompleted: updatedCharacter.bossesCompleted || 0,
+    };
+    const newly = checkNewBadges(ctx, badges);
+    if (newly.length > 0){
+      saveBadges(prev => [...prev, ...newly.map(b => b.id)]);
+      newly.forEach((b, i) => {
+        setTimeout(() => {
+          pushToast({ icon: b.emoji, main: `Trofi baru: ${b.name}!`, sub: b.desc, levelup: true });
+        }, i * 600);
+      });
+    }
+  }, [badges, saveBadges, pushToast]);
+
+  // Bersihkan event achievement yang sudah kadaluarsa
+  useEffect(()=>{
+    if(!activeAchievEvents.length) return;
+    const now = Date.now();
+    const still = activeAchievEvents.filter(ev=>!ev.expiresAt||ev.expiresAt>now);
+    if(still.length!==activeAchievEvents.length){
+      setActiveAchievEvents(still);
+      saveActiveAchievEvents(still);
+    }
+  },[activeAchievEvents]);
+
+  const addJourneyItem = useCallback((item)=>{
+    setJourney(prev=>{
+      const next=[...prev,{...item,date:todayStr(),timestamp:Date.now()}];
+      saveJourney(next);
+      return next;
+    });
+  },[]);
+
+  const triggerAchievEvent = useCallback((def, char)=>{
+    const now = Date.now();
+    const alreadyActive = activeAchievEvents.some(e=>e.id===def.id&&e.expiresAt>now);
+    if(alreadyActive) return;
+    const newEv = {...def, expiresAt: now+(def.durationHours||24)*3600000};
+    delete newEv.trigger; delete newEv.triggerComeback; delete newEv.triggerBoss; delete newEv.triggerRenaissance;
+    const next = [...activeAchievEvents.filter(e=>e.id!==def.id), newEv];
+    setActiveAchievEvents(next);
+    saveActiveAchievEvents(next);
+    pushToast({icon:def.icon, main:'EVENT: '+def.name, sub:def.desc, levelup:true});
+    addJourneyItem({type:'event', title:'Event: '+def.name, sub:def.desc});
+    // bonus freezes jika ada
+    if(def.bonusFreezes){
+      saveCharacter(p=>({...p, streakFreezes:(p.streakFreezes||0)+def.bonusFreezes}));
+    }
+  },[activeAchievEvents, pushToast, addJourneyItem, saveCharacter]);
+
+  const handleCompleteQuest = useCallback((quest) => {
+    if (!character) return;
+    const today = todayStr();
+
+    // hitung level sebelum
+    const prevStatXP = character.stats[quest.statType] || 0;
+    const prevStatLevel = xpToLevel(prevStatXP).level;
+    const prevTotalXP = STAT_KEYS.reduce((s,k)=> s + (character.stats[k]||0), 0);
+    const prevOverallLevel = xpToLevel(prevTotalXP).level;
+    const prevAvatarStage = avatarStage(prevOverallLevel).stage;
+
+    const isBossComplete = quest.type === 'boss' && quest.bossProgress && (quest.bossProgress.current + 1) >= quest.bossProgress.target;
+
+    // hitung multiplier dari semua event aktif
+    const allActive = [...getActiveScheduledEvents(), ...activeAchievEvents.filter(e=>!e.expiresAt||e.expiresAt>Date.now())];
+    const mult = calcEventMultiplier(allActive, quest.statType);
+    const rawXP = quest.xp;
+    const bonusXP = Math.round(rawXP * mult.xp);
+    const lootBonus = Math.random() < 0.15 ? Math.ceil(quest.coin * 1.5) + 5 : 0;
+    const finalCoin = Math.round((quest.coin + lootBonus) * mult.coin);
+
+    const newStatXP = prevStatXP + bonusXP;
+    const newStatLevel = xpToLevel(newStatXP).level;
+    const newTotalXP = prevTotalXP + bonusXP;
+    const newOverallLevel = xpToLevel(newTotalXP).level;
+    const newAvatarStage = avatarStage(newOverallLevel).stage;
+
+    // cek renaissance (semua stat diisi hari ini)
+    const todayStatsCovered = new Set(
+      (fetchXPLog()||[]).filter(e=>e.date===today).map(e=>e.statType)
+    );
+    todayStatsCovered.add(quest.statType);
+    const isRenaissance = STAT_KEYS.every(k=>todayStatsCovered.has(k));
+
+    let updatedChar = null;
+    saveCharacter(prev => {
+      let newStreak = prev.streak;
+      if (prev.lastActiveDate !== today){
+        newStreak = prev.streak + 1;
+      } else if (prev.streak === 0){
+        newStreak = 1;
+      }
+      updatedChar = {
+        ...prev,
+        stats: { ...prev.stats, [quest.statType]: newStatXP },
+        coins: prev.coins + finalCoin,
+        streak: newStreak,
+        lastActiveDate: today,
+        questsCompletedTotal: (prev.questsCompletedTotal || 0) + 1,
+        bossesCompleted: (prev.bossesCompleted || 0) + (isBossComplete ? 1 : 0),
+      };
+      return updatedChar;
+    });
+
+    saveQuests(prev => prev.map(q => {
+      if (q.id !== quest.id) return q;
+      if (q.type === 'boss' && q.bossProgress){
+        const current = Math.min(q.bossProgress.current + 1, q.bossProgress.target);
+        return { ...q, bossProgress: { ...q.bossProgress, current } };
+      }
+      return { ...q, completedToday: true };
+    }));
+
+    // Toast feedback
+    const multLabel = mult.xp>1 ? ` (×${mult.xp.toFixed(1)} Event!)` : '';
+    if (newOverallLevel > prevOverallLevel){
+      setBumpAvatar(true);
+      setTimeout(()=>setBumpAvatar(false), 600);
+      pushToast({ icon:'🎉', main: pick(PRAISE_LEVELUP), sub: `Level ${prevOverallLevel} → ${newOverallLevel}`, levelup:true });
+      addJourneyItem({type:'level_up', title:`Naik ke Level ${newOverallLevel}!`, sub:`+${bonusXP} XP${multLabel}`});
+      // Reward per level
+      const reward = getLevelReward(newOverallLevel);
+      if(reward){
+        saveCharacter(prev=>({
+          ...prev,
+          coins: prev.coins + (reward.coin||0),
+          streakFreezes: prev.streakFreezes + (reward.freeze||0),
+        }));
+        if(reward.coin || reward.freeze){
+          setTimeout(()=>pushToast({
+            icon:'🎁',
+            main:`Hadiah Level ${newOverallLevel}!`,
+            sub:`${reward.coin?'+'+reward.coin+' 🪙':''}${reward.freeze?' +'+reward.freeze+' ❄️ Freeze':''}${reward.title?' • Gelar: '+reward.title:''}`,
+            levelup:true
+          }), 700);
+        }
+      }
+    } else if (newStatLevel > prevStatLevel){
+      pushToast({ icon: STATS[quest.statType].emoji, main: pick(PRAISE_SMALL), sub: `${STATS[quest.statType].label} naik ke Lv${newStatLevel}!`, levelup:true });
+    } else if (isBossComplete){
+      pushToast({ icon:'👑', main: 'BOSS QUEST SELESAI!', sub: quest.title, levelup:true });
+      addJourneyItem({type:'boss_done', title:`Boss Quest selesai: ${quest.title}`, sub:'Pencapaian besar!'});
+    } else {
+      pushToast({ icon:'✨', main: pick(PRAISE_SMALL), sub: `+${bonusXP} XP • 🪙+${finalCoin}${lootBonus?` (Loot!)`:''}${multLabel}` });
+    }
+
+    // Cek evolusi avatar
+    if(newAvatarStage > prevAvatarStage){
+      const av = avatarStage(newOverallLevel);
+      setTimeout(()=>pushToast({icon:av.emoji, main:`Karakter berevolusi menjadi ${av.name}!`, sub:'Petualanganmu memasuki babak baru', levelup:true}), 800);
+      addJourneyItem({type:'avatar_evolve', title:`Berevolusi menjadi ${av.name} ${av.emoji}`, sub:`Level ${newOverallLevel} tercapai`});
+    }
+
+    // Cek streak milestone untuk journey
+    if(updatedChar){
+      const newSt = updatedChar.streak;
+      if([7,14,21,30,60,90,180,365].includes(newSt)){
+        addJourneyItem({type:'streak_milestone', title:`Streak ${newSt} hari beruntun! 🔥`, sub:'Konsistensi yang luar biasa'});
+      }
+    }
+
+    // cek badge
+    setTimeout(() => {
+      if (updatedChar && badges){
+        const overallLevel = xpToLevel(STAT_KEYS.reduce((s,k)=>s+(updatedChar.stats[k]||0),0)).level;
+        const ctx = {character:updatedChar, overallLevel, questsCompletedTotal:updatedChar.questsCompletedTotal||0, bossesCompleted:updatedChar.bossesCompleted||0};
+        const newly = checkNewBadges(ctx, badges);
+        if(newly.length>0){
+          saveBadges(prev=>[...prev,...newly.map(b=>b.id)]);
+          newly.forEach((b,i)=>{
+            setTimeout(()=>pushToast({icon:b.emoji, main:`Trofi baru: ${b.name}!`, sub:b.desc, levelup:true}), i*600);
+            addJourneyItem({type:'badge', title:`Trofi: ${b.name} ${b.emoji}`, sub:b.desc});
+          });
+        }
+      }
+    }, 50);
+
+    // Cek trigger event pencapaian
+    setTimeout(()=>{
+      if(!updatedChar) return;
+      ACHIEVEMENT_EVENT_DEFS.forEach(def=>{
+        if(def.trigger && def.trigger(updatedChar)) triggerAchievEvent(def, updatedChar);
+        if(def.triggerBoss && isBossComplete) triggerAchievEvent(def, updatedChar);
+        if(def.triggerRenaissance && isRenaissance) triggerAchievEvent(def, updatedChar);
+      });
+    }, 100);
+
+    // catat ke log
+    const logEntry = { date: today, statType: quest.statType, xp: bonusXP, coin: finalCoin, timestamp: Date.now() };
+    appendXPLog(logEntry);
+    setXpLog(prev => [...prev, logEntry]);
+  }, [character, badges, activeAchievEvents, pushToast, saveCharacter, saveQuests, saveBadges, addJourneyItem, triggerAchievEvent]);
+
+  const handleDeleteQuest = useCallback((id) => {
+    saveQuests(prev => prev.filter(q => q.id !== id));
+  }, [saveQuests]);
+
+  const handleAddQuest = useCallback((quest) => {
+    saveQuests(prev => [...prev, quest]);
+    setShowAddQuest(false);
+    pushToast({ icon:'📜', main: 'Quest baru ditambahkan!', sub: quest.title });
+  }, [saveQuests, pushToast]);
+
+  const handleBuyReward = useCallback((reward) => {
+    if (!character || character.coins < reward.costCoin) return;
+    saveCharacter(prev => ({ ...prev, coins: prev.coins - reward.costCoin }));
+    setRewards(prev => {
+      const next = prev.map(r => r.id === reward.id ? { ...r, claimed: true } : r);
+      saveRewardsToStorage(next);
+      return next;
+    });
+    pushToast({ icon:'🎁', main: 'Hadiah diklaim! Selamat menikmati~', sub: reward.name, levelup:true });
+  }, [character, saveCharacter, pushToast]);
+
+  const handleAddReward = useCallback((reward) => {
+    setRewards(prev => {
+      const next = [...prev, reward];
+      saveRewardsToStorage(next);
+      return next;
+    });
+    setShowAddReward(false);
+    pushToast({ icon:'🎁', main: 'Hadiah baru ditambahkan ke toko!', sub: reward.name });
+  }, [pushToast]);
+
+  const handleDeleteReward = useCallback((id) => {
+    setRewards(prev => {
+      const next = prev.filter(r => r.id !== id);
+      saveRewardsToStorage(next);
+      return next;
+    });
+  }, []);
+
+  const handleSaveReflection = useCallback((noteText) => {
+    setReflections(prev => {
+      const next = [...prev, { date: todayStr(), userNote: noteText }];
+      saveReflectionsToStorage(next);
+      return next;
+    });
+    pushToast({ icon:'📖', main: 'Refleksi tersimpan', sub: 'Terima kasih sudah meluangkan waktu untuk dirimu sendiri' });
+  }, [pushToast]);
+
+  if (loading){
+    return (
+      <div className="loading-screen">
+        <div className="spinner"></div>
+        <p>Menyiapkan duniamu...</p>
+      </div>
+    );
+  }
+  if (error){
+    return <div className="loading-screen"><p>{error}</p></div>;
+  }
+
+  return (
+    <div className="container">
+      <ToastStack toasts={toasts} />
+      <div className="header">
+        <h1 className="display">⚔️ Life RPG</h1>
+        <p>Perjalanan menuju versi terbaik dirimu</p>
+      </div>
+      <CharacterCard character={character} justLeveledUp={bumpAvatar} />
+      <EventBanner events={[...getActiveScheduledEvents(), ...activeAchievEvents.filter(e=>!e.expiresAt||e.expiresAt>Date.now())]} />
+      <TabNav active={activeTab} onChange={setActiveTab} />
+      {activeTab === 'quests' && (
+        <React.Fragment>
+          <SkillTreeSection quests={quests} />
+          <QuestList
+            quests={quests}
+            onComplete={handleCompleteQuest}
+            onDelete={handleDeleteQuest}
+            onAddClick={() => setShowAddQuest(true)}
+          />
+        </React.Fragment>
+      )}
+      {activeTab === 'events' && (
+        <EventPanel activeEvents={[...getActiveScheduledEvents(), ...activeAchievEvents.filter(e=>!e.expiresAt||e.expiresAt>Date.now())]} />
+      )}
+      {activeTab === 'rivals' && character && (
+        <RivalPanel rivals={rivals} character={character} />
+      )}
+      {activeTab === 'stats' && <StatsPanel xpLog={xpLog} />}
+      {activeTab === 'journey' && <JourneyPanel journey={journey} character={character} />}
+      {activeTab === 'journal' && (
+        <JournalPanel xpLog={xpLog} reflections={reflections} onSaveNote={handleSaveReflection} />
+      )}
+      {activeTab === 'badges' && <HallOfFame unlockedIds={badges || []} />}
+      {activeTab === 'shop' && (
+        <RewardShop
+          rewards={rewards}
+          coins={character.coins}
+          onBuy={handleBuyReward}
+          onAddClick={() => setShowAddReward(true)}
+          onDelete={handleDeleteReward}
+        />
+      )}
+      {activeTab === 'backup' && (
+        <BackupPanel
+          onImportSuccess={()=>window.location.reload()}
+          syncStatus={syncStatus}
+          setSyncStatus={setSyncStatus}
+        />
+      )}
+      {showAddQuest && (
+        <AddQuestModal onSave={handleAddQuest} onClose={() => setShowAddQuest(false)} />
+      )}
+      {showAddReward && (
+        <AddRewardModal onSave={handleAddReward} onClose={() => setShowAddReward(false)} />
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>
