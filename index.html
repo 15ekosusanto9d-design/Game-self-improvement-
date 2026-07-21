@@ -95,6 +95,9 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .day-pick{display:flex;gap:5px;flex-wrap:wrap;}
 .day-btn{flex:1;min-width:38px;background:var(--bg-d);border:1px solid var(--border);color:var(--muted);padding:8px 4px;border-radius:8px;cursor:pointer;font-size:11px;font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent;}
 .day-btn.active{background:var(--cyan);border-color:var(--cyan);color:#06111E;font-weight:600;}
+.sub-check-wrap{display:flex;gap:4px;flex-wrap:wrap;align-items:center;max-width:120px;}
+.sub-dot{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);flex-shrink:0;transition:transform 0.12s,background 0.12s,border-color 0.12s;-webkit-tap-highlight-color:transparent;}
+.sub-dot.filled{background:var(--cyan);border-color:var(--cyan);color:#06111E;font-weight:700;transform:scale(1.05);}
 .modal-actions{display:flex;gap:10px;margin-top:16px;}
 .btn{flex:1;padding:12px;border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;border:none;font-family:'Inter',sans-serif;}
 .btn-primary{background:var(--cyan);color:#06111E;}
@@ -267,7 +270,22 @@ const PRAISE=['Mantap, satu langkah lagi! 🔥','Konsisten itu kuncinya! ⚡','K
 const PRAISE_LV=['LEVEL UP! Karaktermu naik level! 🎉','Evolusi! Kamu makin kuat! ⚡✨','Level baru terbuka! 🏆'];
 function pick(a){return a[Math.floor(Math.random()*a.length)];}
 function uid(){return Math.random().toString(36).slice(2,9)+Date.now().toString(36);}
-function todayStr(){return new Date().toISOString().slice(0,10);}
+function todayStr(){
+  // Anchor eksplisit ke WIB (UTC+7), bukan UTC device / timezone browser.
+  // Ini dipakai di SELURUH app (reset harian, streak, tanggal xp log, stats) supaya konsisten:
+  // pergantian hari selalu jam 24.00 WIB, bukan jam 07.00 pagi WIB (bug lama akibat toISOString() = UTC).
+  const wib=new Date(Date.now()+7*3600000);
+  return wib.toISOString().slice(0,10);
+}
+function weekKeyWIB(dateStr){
+  // Kunci minggu = tanggal hari Senin dari minggu yang mengandung dateStr (WIB).
+  // Reset weekly terjadi saat kunci ini berubah, yaitu tepat Minggu 24.00 WIB / Senin 00.00 WIB.
+  const d=new Date(dateStr+'T00:00:00Z');
+  const dow=d.getUTCDay(); // 0=Min,1=Sen,...6=Sab
+  const diffToMonday=(dow+6)%7;
+  d.setUTCDate(d.getUTCDate()-diffToMonday);
+  return d.toISOString().slice(0,10);
+}
 const DOW_LABELS=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
 function questActiveToday(q){
   if(q.type!=='daily')return true;
@@ -496,6 +514,7 @@ function lsLoad(){
   badges=badges.filter(b=>typeof b==='string');
   if(char.streakFreezes!=null&&char.freezes==null)char.freezes=char.streakFreezes;
   if(char.lastActiveDate!=null&&char.lastActive==null)char.lastActive=char.lastActiveDate;
+  if(char.lastStreakDate==null&&char.lastActive!=null)char.lastStreakDate=char.lastActive;
   if(char.questsCompletedTotal!=null&&char.questsDone==null)char.questsDone=char.questsCompletedTotal;
   // migrate quests field names
   quests=quests.filter(q=>q&&typeof q==='object').map(q=>{
@@ -567,69 +586,56 @@ function cleanAchievEvs(){
 }
 
 // ===== COMPLETE QUEST =====
-function completeQuest(questId){
-  const q=APP.quests.find(x=>x.id===questId);
-  if(!q||q.done)return;
+// applyQuestReward: inti pemberian reward, dipakai baik oleh quest biasa (completeQuest)
+// maupun quest bertahap/sub-tugas (tickSubQuest). isFinal menandai apakah ini penyelesaian
+// penuh (quest biasa selesai / sub-tugas terakhir) — hanya saat itu questsDone, streak-milestone,
+// dan pengecekan trofi/achievement dijalankan, supaya trofi tidak "kebobolan" di tengah progres.
+function applyQuestReward(q,xpAmount,coinAmount,isFinal,isBossDone){
   const today=todayStr();
   const c=APP.char;
 
-  // prev levels
   const prevStatXP=c.stats[q.stat]||0,prevStatLv=xpToLevel(prevStatXP).level;
   const prevTXP=totalXP(c.stats),prevOvLv=xpToLevel(prevTXP).level;
   const prevAvStage=avatarStage(prevOvLv).emoji;
-  const isBossDone=q.type==='boss'&&q.boss&&(q.boss.cur+1)>=q.boss.target;
 
-  // active events
   const allActive=[...getActiveScheduled(),...getActiveAchievEvs()];
   const mult=calcMult(allActive,q.stat);
-  const bonusXP=Math.round(q.xp*mult.xp);
-  const loot=Math.random()<0.15?Math.ceil(q.coin*1.5)+5:0;
-  const finalCoin=Math.round((q.coin+loot)*mult.coin);
+  const bonusXP=Math.round(xpAmount*mult.xp);
+  const loot=Math.random()<0.15?Math.ceil(coinAmount*1.5)+5:0;
+  const finalCoin=Math.round((coinAmount+loot)*mult.coin);
 
-  // update stats
   const newStatXP=prevStatXP+bonusXP;
   const newStatLv=xpToLevel(newStatXP).level;
   const newTXP=prevTXP+bonusXP;
   const newOvLv=xpToLevel(newTXP).level;
   const newAvStage=avatarStage(newOvLv);
 
-  // streak
-  let newStreak=c.streak;
-  if(c.lastActive!==today){newStreak=c.streak+1;}
-  else if(c.streak===0)newStreak=1;
+  let newStreak=c.streak||0;
+  if(c.lastStreakDate!==today){newStreak=(c.streak||0)+1;}
 
-  // check renaissance
   const todayStats=new Set((APP.xpLog||[]).filter(e=>e.date===today).map(e=>e.stat));
   todayStats.add(q.stat);
   const isRen=STAT_KEYS.every(k=>todayStats.has(k));
 
-  // update char
   c.stats[q.stat]=newStatXP;
   c.coins+=finalCoin;
   c.streak=newStreak;
   c.lastActive=today;
-  c.questsDone=(c.questsDone||0)+1;
-  if(isBossDone)c.bossesCompleted=(c.bossesCompleted||0)+1;
-
-  // update quest
-  if(q.type==='boss'&&q.boss){
-    q.boss.cur=Math.min(q.boss.cur+1,q.boss.target);
-  } else {
-    q.done=true;
+  c.lastStreakDate=today;
+  if(isFinal){
+    c.questsDone=(c.questsDone||0)+1;
+    if(isBossDone)c.bossesCompleted=(c.bossesCompleted||0)+1;
   }
 
   saveChar();saveQuests();
 
-  // xp log
   appendXpLog({date:today,stat:q.stat,xp:bonusXP,coin:finalCoin,ts:Date.now()});
   APP.xpLog=lsGet('xp_log',[]);
 
-  // toasts
   const mLabel=mult.xp>1?' (×'+mult.xp.toFixed(1)+' Event!)':'';
   if(newOvLv>prevOvLv){
     pushToast('🎉',pick(PRAISE_LV),'Level '+prevOvLv+' → '+newOvLv,true);
     addJourneyItem('level_up','Naik ke Level '+newOvLv+'!','+'+bonusXP+' XP'+mLabel);
-    // level reward
     const rwd=getLvReward(newOvLv);
     if(rwd){
       c.coins+=(rwd.coin||0);c.freezes+=(rwd.fz||0);saveChar();
@@ -637,26 +643,25 @@ function completeQuest(questId){
     }
   } else if(newStatLv>prevStatLv){
     pushToast(STATS[q.stat].emoji,pick(PRAISE),STATS[q.stat].label+' naik ke Lv'+newStatLv+'!',true);
-  } else if(isBossDone){
+  } else if(isFinal&&isBossDone){
     pushToast('👑','BOSS QUEST SELESAI!',q.title,true);
     addJourneyItem('boss_done','Boss Quest: '+q.title,'Pencapaian besar!');
-  } else {
+  } else if(isFinal){
     pushToast('✨',pick(PRAISE),'+'+bonusXP+' XP • 🪙+'+finalCoin+(loot?' (Loot!)':'')+mLabel);
+  } else {
+    pushToast(STATS[q.stat].emoji,'Progress dicatat!','+'+bonusXP+' XP • 🪙+'+finalCoin+' • ('+q.subDone+'/'+q.sub+')');
   }
 
-  // avatar evolve
   if(newAvStage.emoji!==prevAvStage){
     setTimeout(()=>pushToast(newAvStage.emoji,'Berevolusi menjadi '+newAvStage.name+'!','Petualanganmu memasuki babak baru',true),800);
     addJourneyItem('avatar_evolve','Berevolusi menjadi '+newAvStage.name+' '+newAvStage.emoji,'Level '+newOvLv+' tercapai');
   }
 
-  // streak milestone
-  if([7,14,21,30,60,90,180,365].includes(newStreak)){
+  if(isFinal&&[7,14,21,30,60,90,180,365].includes(newStreak)){
     addJourneyItem('streak_milestone','Streak '+newStreak+' hari beruntun! 🔥','Konsistensi luar biasa');
   }
 
-  // badges
-  setTimeout(()=>{
+  if(isFinal)setTimeout(()=>{
     const nb=checkBadges(APP.char,APP.badges);
     if(nb.length){
       APP.badges=[...APP.badges,...nb.map(b=>b.id)];saveBadges();
@@ -664,16 +669,41 @@ function completeQuest(questId){
     }
   },60);
 
-  // achievement events
   setTimeout(()=>{
     ACHIEV_DEFS.forEach(def=>{
       if(def.trigger&&def.trigger(APP.char))triggerAchievEv(def);
-      if(def.isBoss&&isBossDone)triggerAchievEv(def);
+      if(def.isBoss&&isBossDone&&isFinal)triggerAchievEv(def);
       if(def.isRen&&isRen)triggerAchievEv(def);
     });
   },100);
+}
 
-  render();
+function completeQuest(questId){
+  const q=APP.quests.find(x=>x.id===questId);
+  if(!q||q.done)return;
+  if(q.sub&&q.sub>1){tickSubQuest(questId);return;}
+  const isBossDone=q.type==='boss'&&q.boss&&(q.boss.cur+1)>=q.boss.target;
+  if(q.type==='boss'&&q.boss){
+    q.boss.cur=Math.min(q.boss.cur+1,q.boss.target);
+  } else {
+    q.done=true;
+  }
+  applyQuestReward(q,q.xp,q.coin,true,isBossDone);
+}
+
+// tickSubQuest: untuk quest bertahap (misal "Sholat 5 waktu"). Tiap centang kecil dapat
+// bagian XP/koin proporsional (sisa pembagian dimasukkan ke centang terakhir biar totalnya pas),
+// dan quest baru dianggap SELESAI PENUH (q.done=true, trofi/streak-milestone dicek) di centang terakhir.
+function tickSubQuest(questId){
+  const q=APP.quests.find(x=>x.id===questId);
+  if(!q||q.done||!q.sub||q.sub<2||(q.subDone||0)>=q.sub)return;
+  q.subDone=(q.subDone||0)+1;
+  const isFinal=q.subDone>=q.sub;
+  const perXp=Math.floor(q.xp/q.sub),perCoin=Math.floor(q.coin/q.sub);
+  const tickXp=isFinal?q.xp-perXp*(q.sub-1):perXp;
+  const tickCoin=isFinal?q.coin-perCoin*(q.sub-1):perCoin;
+  if(isFinal)q.done=true;
+  applyQuestReward(q,tickXp,tickCoin,isFinal,false);
 }
 
 // ===== DAILY RESET =====
@@ -681,10 +711,22 @@ function checkDailyReset(){
   const c=APP.char;
   const today=todayStr();
   const lastActive=c.lastActive||c.lastActiveDate||null;
+  // Weekly reset: cek setiap kali app dibuka, terlepas dari status daily reset di bawah.
+  // Kunci minggu berubah tepat pada batas Minggu 24.00 WIB / Senin 00.00 WIB.
+  const wk=weekKeyWIB(today);
+  if(c.lastWeekKey&&c.lastWeekKey!==wk){
+    APP.quests.forEach(q=>{if(q.type==='weekly'){q.done=false;if(q.sub&&q.sub>1)q.subDone=0;}});
+    saveQuests();
+  }
+  c.lastWeekKey=wk;
   if(lastActive&&lastActive!==today){
     // Reset daily quests (mutate in-place agar referensi eksternal ikut terupdate)
-    APP.quests.forEach(q=>{if(q.type==='daily'){q.done=false;q.completedToday=false;}});
-    const diff=Math.round((new Date(today)-new Date(lastActive))/86400000);
+    APP.quests.forEach(q=>{if(q.type==='daily'){q.done=false;q.completedToday=false;if(q.sub&&q.sub>1)q.subDone=0;}});
+    // Streak-break/freeze pakai lastStreakDate (hari terakhir beneran nyelesain quest),
+    // bukan lastActive (hari terakhir buka app) — supaya cuma buka app tanpa ngerjain apa-apa
+    // tidak keliru dianggap "aktif" dan tidak salah menghitung jeda absen.
+    const lastStreak=c.lastStreakDate||lastActive;
+    const diff=Math.round((new Date(today)-new Date(lastStreak))/86400000);
     if(diff>1){
       if((c.freezes||0)>0)c.freezes=((c.freezes||0)-1);
       else c.streak=0;
@@ -851,16 +893,29 @@ function renderQuestTab(){
     const ql=div('quest-list');
     qs.forEach(q=>{
       const s=STATS[q.stat]||STATS.discipline;
+      const hasSub=q.sub&&q.sub>1;
       const qc=div('quest-card'+(q.done?' done':''));
-      const chk=div('quest-check'+(q.done?' checked':''),q.done?'✓':'');chk.style.cursor='pointer';chk.style.minWidth='28px';
-      if(!q.done){
-        chk.onclick=function(e){e.stopPropagation();completeQuest(q.id);};
-        chk.style.cursor='pointer';
+      let chk;
+      if(hasSub){
+        chk=div('sub-check-wrap');
+        const subDone=q.subDone||0;
+        for(let i=0;i<q.sub;i++){
+          const dot=div('sub-dot'+(i<subDone?' filled':''),i<subDone?'✓':'');
+          if(i===subDone&&!q.done){dot.style.cursor='pointer';dot.onclick=function(e){e.stopPropagation();tickSubQuest(q.id);};}
+          chk.appendChild(dot);
+        }
+      } else {
+        chk=div('quest-check'+(q.done?' checked':''),q.done?'✓':'');chk.style.cursor='pointer';chk.style.minWidth='28px';
+        if(!q.done){
+          chk.onclick=function(e){e.stopPropagation();completeQuest(q.id);};
+          chk.style.cursor='pointer';
+        }
       }
       const body=div('quest-body');
       ap(body,div('quest-title'+(q.done?' done':''),q.title));
       const meta=div('quest-meta');
       ap(meta,span('quest-tag',s.emoji+' '+s.label),span('quest-reward','+'+q.xp+' XP • 🪙+'+q.coin));
+      if(hasSub)ap(meta,span('quest-tag',(q.subDone||0)+'/'+q.sub+' selesai'));
       if(q.type==='daily'&&q.days&&q.days.length)ap(meta,span('quest-tag',q.days.slice().sort().map(d=>DOW_LABELS[d]).join('/')));
       ap(body,meta);
       const del=btn('quest-del','×',()=>{APP.quests=APP.quests.filter(x=>x.id!==q.id);saveQuests();render();});
@@ -1213,7 +1268,7 @@ function renderBackupTab(){
   ap(ec,ap(el('h4','','📥 Download Backup')));
   ap(ec,div('','Unduh semua datamu ke file .json. Simpan di Google Drive atau folder HP sebagai cadangan.'));
   ap(ec,btn('bk-btn export','⬇️ Download Backup (.json)',()=>{
-    const keys=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey'];
+    const keys=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey','rivals'];
     const data={};keys.forEach(k=>{data[k]=lsGet(k);});data._at=new Date().toISOString();
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);const a=document.createElement('a');
@@ -1231,7 +1286,7 @@ function renderBackupTab(){
     reader.onload=ev=>{
       try{
         const data=JSON.parse(ev.target.result);if(!data.character)throw new Error('invalid');
-        const keys=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey'];
+        const keys=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey','rivals'];
         keys.forEach(k=>{if(data[k]!=null){lsSet(k,data[k]);markPending(k);}});
         lsLoad();render();pushToast('✅','Data berhasil dipulihkan!','Semua progres kembali.',true);
       }catch(err){pushToast('❌','File tidak valid','Coba file backup yang lain.');}
@@ -1255,7 +1310,7 @@ function renderAddQuestModal(){
   const overlay=div('modal-overlay');
   const box=div('modal-box');
   ap(box,el('h3','','✏️ Buat Quest Baru'));
-  let title='',stat='body',type='daily',xp=10,coin=10,bossTgt=5,days=[];
+  let title='',stat='body',type='daily',xp=10,coin=10,bossTgt=5,days=[],subCount=1;
   const statDefaults={body:{xp:10,coin:10},mind:{xp:2,coin:4},career:{xp:2,coin:5},social:{xp:5,coin:10},discipline:{xp:15,coin:15}};
   const fg1=div('form-group');ap(fg1,el('label','','Nama Quest'));const ti=inp('',{placeholder:'Misal: Lari pagi 20 menit',type:'text'});ti.oninput=e=>title=e.target.value;ap(fg1,ti);
   const fg2=div('form-group');ap(fg2,el('label','','Stat yang dilatih'));
@@ -1268,7 +1323,7 @@ function renderAddQuestModal(){
   };ap(fg2,statSel);
   const fg3=div('form-group');ap(fg3,el('label','','Jenis Quest'));
   const typeSel=sel('',[{value:'daily',label:'📅 Daily — diulang tiap hari'},{value:'weekly',label:'🗓️ Weekly — target mingguan'},{value:'boss',label:'👑 Boss — tujuan besar'}],'daily');
-  typeSel.onchange=e=>{type=e.target.value;bossFg.style.display=type==='boss'?'block':'none';dayFg.style.display=type==='daily'?'block':'none';};ap(fg3,typeSel);
+  typeSel.onchange=e=>{type=e.target.value;bossFg.style.display=type==='boss'?'block':'none';dayFg.style.display=type==='daily'?'block':'none';subFg.style.display=type==='boss'?'none':'block';};ap(fg3,typeSel);
   const bossFg=div('form-group');bossFg.style.display='none';ap(bossFg,el('label','','Berapa milestone?'));const bti=inp('',{type:'number',min:'2',value:'5'});bti.oninput=e=>bossTgt=parseInt(e.target.value)||5;ap(bossFg,bti);
   const dayFg=div('form-group');
   ap(dayFg,el('label','','Ulangi di hari (kosongkan = setiap hari)'));
@@ -1281,6 +1336,12 @@ function renderAddQuestModal(){
     dayPick.appendChild(db);
   });
   ap(dayFg,dayPick);
+  const subFg=div('form-group');
+  ap(subFg,el('label','','Ada berapa sub-tugas per hari? (misal ibadah 5x — kosongkan/1 kalau tidak ada)'));
+  const subi=inp('',{type:'number',min:'1',max:'20',value:'1',placeholder:'1'});
+  subi.oninput=e=>subCount=Math.max(1,parseInt(e.target.value)||1);
+  ap(subFg,subi);
+  ap(subFg,el('small','','Reward akan dibagi rata ke tiap sub-tugas. Quest baru dianggap selesai penuh (dapat trofi & streak) setelah semua sub-tugas dicentang.'));
   const fg4=div('form-group');ap(fg4,el('label','','Reward XP'));const xi=inp('',{type:'number',min:'10',value:'50'});xi.oninput=e=>xp=parseInt(e.target.value)||50;ap(fg4,xi);
   const fg5=div('form-group');ap(fg5,el('label','','Reward Coin'));const ci=inp('',{type:'number',min:'0',value:'10'});ci.oninput=e=>coin=parseInt(e.target.value)||10;ap(fg5,ci);
   const actions=div('modal-actions');
@@ -1289,10 +1350,11 @@ function renderAddQuestModal(){
     const q={id:uid(),title:title.trim(),stat,type,xp,coin,done:false};
     if(type==='boss')q.boss={cur:0,target:bossTgt};
     if(type==='daily'&&days.length)q.days=days.slice();
+    if(type!=='boss'&&subCount>1){q.sub=subCount;q.subDone=0;}
     APP.quests.push(q);saveQuests();APP.showModal=null;
     pushToast('📜','Quest baru ditambahkan!',q.title);render();
   }));
-  ap(box,fg1,fg2,fg3,bossFg,dayFg,fg4,fg5,actions);
+  ap(box,fg1,fg2,fg3,bossFg,dayFg,subFg,fg4,fg5,actions);
   overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;render();}};
   ap(overlay,box);return overlay;
 }
