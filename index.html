@@ -186,6 +186,8 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .tl-item{position:relative;margin-bottom:14px;}
 .tl-dot{position:absolute;left:-23px;top:3px;width:16px;height:16px;border-radius:50%;background:var(--bg-p);border:2px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:8px;}
 .tl-dot.big{width:20px;height:20px;left:-25px;background:var(--cyan);}
+.tl-dot.manual{border-color:var(--amber);background:rgba(252,211,77,0.15);}
+.tl-content.manual{border-left:3px solid var(--amber);background:rgba(252,211,77,0.06);}
 .tl-content{background:rgba(0,0,0,0.18);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
 .tl-content.hl{border-color:var(--cyan);background:rgba(14,165,233,0.06);}
 .tl-date{font-size:10px;color:var(--muted);margin-bottom:3px;}
@@ -240,6 +242,13 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .diag-item.error{border-left:3px solid var(--danger);color:var(--text);}
 .diag-item.warning{border-left:3px solid var(--amber);color:var(--text);}
 .collectible-catalog{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+.info-icon-btn{background:rgba(14,165,233,0.14);border:1px solid var(--cyan);color:var(--cyan-l);border-radius:50%;width:26px;height:26px;font-size:12px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
+.finance-info-row{background:rgba(0,0,0,0.18);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+.finance-info-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.finance-info-desc{font-size:12px;color:var(--muted);line-height:1.4;}
+.finance-info-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.finance-info-tag{font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.25);color:var(--cyan-l);}
+.quick-add-btn{background:rgba(52,211,153,0.15);border:1px solid var(--teal);color:var(--teal);width:28px;height:28px;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
 .bk-card h4{font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;}
 .bk-card p{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:10px;}
 .bk-btn{width:100%;padding:11px;border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;border:none;font-family:'Inter',sans-serif;}
@@ -445,13 +454,13 @@ function seededRand(seedNum){const x=Math.sin(seedNum)*10000;return x-Math.floor
 function hashStr(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return Math.abs(h);}
 function seededRange(seed,min,max){return min+seededRand(seed)*(max-min);}
 const FINANCE_TYPES={
-  deposito:{name:'Deposito',icon:'🏦',desc:'Aman, bunga tetap kecil tiap hari',minInvest:50,
+  deposito:{name:'Deposito',icon:'🏦',desc:'Aman, bunga tetap kecil tiap hari',minInvest:50,risk:'Sangat Rendah',rangeLabel:'+0.3%/hari (tetap, tidak pernah rugi)',
     rate:()=>0.003}, // +0.3%/hari, selalu positif
-  saham:{name:'Saham Virtual',icon:'📈',desc:'Risiko sedang, naik-turun harian',minInvest:50,
+  saham:{name:'Saham Virtual',icon:'📈',desc:'Risiko sedang, naik-turun harian',minInvest:50,risk:'Sedang',rangeLabel:'-3% s/d +4.5% per hari',
     rate:(seed)=>seededRange(seed,-0.03,0.045)}, // -3% s/d +4.5%/hari
-  kripto:{name:'Kripto Virtual',icon:'🪙',desc:'Risiko tinggi, sangat fluktuatif',minInvest:50,
-    rate:(seed)=>seededRange(seed,-0.09,0.11)}, // -9% s/d +11%/hari
-  trading:{name:'Trading Cepat',icon:'⚡',desc:'Super cepat, berubah tiap 5 menit (maks ±10%)',minInvest:50,
+  kripto:{name:'Kripto Virtual',icon:'🪙',desc:'Risiko tinggi, sangat fluktuatif',minInvest:50,risk:'Tinggi',rangeLabel:'-10% s/d +10% per hari',
+    rate:(seed)=>seededRange(seed,-0.10,0.10)}, // -10% s/d +10%/hari (disamakan, tidak lebih dari 10%)
+  trading:{name:'Trading Cepat',icon:'⚡',desc:'Super cepat, berubah tiap 5 menit (maks ±10%)',minInvest:50,risk:'Sangat Tinggi',rangeLabel:'-10% s/d +10% per 5 menit',
     interval:'window',rate:(seed)=>seededRange(seed,-0.10,0.10)}, // ±10% tiap jendela 5 menit
 };
 const TRADING_WINDOW_MS=5*60*1000;
@@ -495,7 +504,9 @@ function investCoins(type,amount){
   if(!t||amount<t.minInvest||amount>APP.char.coins)return false;
   APP.char.coins-=amount;
   saveChar();
-  APP.finance.push({id:uid(),type,principal:amount,value:amount,createdDate:todayStr(),lastUpdateDate:todayStr()});
+  let h=APP.finance.find(x=>x.type===type);
+  if(h){h.principal+=amount;h.value+=amount;}
+  else{h={id:uid(),type,principal:amount,value:amount,createdDate:todayStr(),lastUpdateDate:todayStr()};APP.finance.push(h);}
   lsSetSync('finance',APP.finance);
   return true;
 }
@@ -514,10 +525,10 @@ function withdrawInvestment(id){
 // makin lama ditunda, makin mahal. Beli sekarang, jual nanti kalau harganya sudah naik.
 const COLLECTIBLE_EPOCH='2026-01-01';
 const COLLECTIBLE_DEFS=[
-  {id:'gold',name:'Emas Batangan',icon:'🥇',basePrice:200,growthPerDay:0.0035},
-  {id:'painting',name:'Lukisan Klasik',icon:'🖼️',basePrice:500,growthPerDay:0.005},
-  {id:'watch',name:'Jam Tangan Branded',icon:'⌚',basePrice:350,growthPerDay:0.004},
-  {id:'card',name:'Kartu Koleksi Langka',icon:'🃏',basePrice:150,growthPerDay:0.006},
+  {id:'gold',name:'Emas Batangan',icon:'🥇',basePrice:100,growthPerDay:0.0035,growthLabel:'+0.35%/hari'},
+  {id:'painting',name:'Lukisan Klasik',icon:'🖼️',basePrice:250,growthPerDay:0.005,growthLabel:'+0.5%/hari'},
+  {id:'watch',name:'Jam Tangan Branded',icon:'⌚',basePrice:175,growthPerDay:0.004,growthLabel:'+0.4%/hari'},
+  {id:'card',name:'Kartu Koleksi Langka',icon:'🃏',basePrice:75,growthPerDay:0.006,growthLabel:'+0.6%/hari'},
 ];
 function collectibleMarketPrice(typeId){
   const def=COLLECTIBLE_DEFS.find(d=>d.id===typeId);
@@ -525,20 +536,25 @@ function collectibleMarketPrice(typeId){
   const days=Math.max(0,Math.floor((new Date(todayStr())-new Date(COLLECTIBLE_EPOCH))/86400000));
   return Math.round(def.basePrice*Math.pow(1+def.growthPerDay,days));
 }
-function buyCollectible(typeId){
-  const price=collectibleMarketPrice(typeId);
-  if(price<=0||price>APP.char.coins)return false;
-  APP.char.coins-=price;saveChar();
-  APP.collectibles.push({id:uid(),type:typeId,buyPrice:price,buyDate:todayStr()});
+function buyCollectible(typeId,qty){
+  qty=Math.max(1,Math.floor(qty)||1);
+  const unitPrice=collectibleMarketPrice(typeId);
+  const totalPrice=unitPrice*qty;
+  if(unitPrice<=0||totalPrice>APP.char.coins)return false;
+  APP.char.coins-=totalPrice;saveChar();
+  let h=APP.collectibles.find(x=>x.type===typeId);
+  if(h){h.quantity+=qty;h.totalCost+=totalPrice;}
+  else{h={id:uid(),type:typeId,quantity:qty,totalCost:totalPrice};APP.collectibles.push(h);}
   lsSetSync('collectibles',APP.collectibles);
   return true;
 }
 function sellCollectible(id){
   const h=APP.collectibles.find(x=>x.id===id);
   if(!h)return;
-  const price=collectibleMarketPrice(h.type);
-  APP.char.coins+=price;
-  APP.char.totalCoinsEarned=(APP.char.totalCoinsEarned||0)+Math.max(0,price-h.buyPrice);
+  const unitPrice=collectibleMarketPrice(h.type);
+  const total=Math.round(unitPrice*h.quantity);
+  APP.char.coins+=total;
+  APP.char.totalCoinsEarned=(APP.char.totalCoinsEarned||0)+Math.max(0,total-h.totalCost);
   saveChar();
   APP.collectibles=APP.collectibles.filter(x=>x.id!==id);
   lsSetSync('collectibles',APP.collectibles);
@@ -705,7 +721,7 @@ const APP={
   editQuest:null,
   autoSyncInt:null,tradingInt:null,
   lastAction:null,  // {questId, ts, charSnap, prevQuestState} — undo untuk misklik, cuma tersimpan di memori (hilang saat refresh)
-  deleteBossId:null,diagnosticResults:null,
+  deleteBossId:null,diagnosticResults:null,investPresetType:null,buyCollectibleType:null,
 };
 
 function lsLoad(){
@@ -725,7 +741,27 @@ function lsLoad(){
   let achievEvs=toArr(lsGet('achiev_events'));
   let journey=toArr(lsGet('journey'));
   let finance=toArr(lsGet('finance')).filter(h=>h&&typeof h==='object'&&FINANCE_TYPES[h.type]);
-  let collectibles=toArr(lsGet('collectibles')).filter(h=>h&&typeof h==='object'&&COLLECTIBLE_DEFS.some(d=>d.id===h.type));
+  const finMerged={};
+  finance.forEach(h=>{
+    if(finMerged[h.type]){finMerged[h.type].principal+=h.principal;finMerged[h.type].value+=h.value;}
+    else finMerged[h.type]={...h};
+  });
+  finance=Object.values(finMerged);
+  let collectibles=toArr(lsGet('collectibles')).filter(h=>h&&typeof h==='object'&&COLLECTIBLE_DEFS.some(d=>d.id===h.type))
+    .map(h=>{
+      if(typeof h.quantity!=='number'){
+        // migrasi format lama (1 entri = 1 unit dengan buyPrice) ke format baru (kuantitas per jenis)
+        return{id:h.id,type:h.type,quantity:1,totalCost:h.buyPrice||collectibleMarketPrice(h.type)};
+      }
+      return h;
+    });
+  // Gabungkan duplikat jenis yang sama jadi satu holding (jaga-jaga dari data lama sebelum konsolidasi)
+  const collMerged={};
+  collectibles.forEach(h=>{
+    if(collMerged[h.type]){collMerged[h.type].quantity+=h.quantity;collMerged[h.type].totalCost+=h.totalCost;}
+    else collMerged[h.type]={...h};
+  });
+  collectibles=Object.values(collMerged);
   let rivals=lsGet('rivals');
   const playerXP=totalXP(char.stats);
   const band=rivalBand(playerXP);
@@ -809,7 +845,7 @@ function addJourneyItem(type,title,sub){
   saveJourney();
 }
 const BIG_TYPES=['avatar_evolve','boss_done','streak_milestone'];
-const ICON_MAP={start:'🌰',level_up:'⭐',avatar_evolve:'🌿',badge:'🏅',boss_done:'👑',streak_milestone:'🔥',event:'🎉'};
+const ICON_MAP={start:'🌰',level_up:'⭐',avatar_evolve:'🌿',badge:'🏅',boss_done:'👑',streak_milestone:'🔥',event:'🎉',manual:'📝'};
 
 // ===== TOAST =====
 let _toastId=0;
@@ -1223,7 +1259,8 @@ function renderQuestTab(){
   const p=div('panel');
   ['daily','weekly'].forEach(type=>{
     const qsAll=APP.quests.filter(q=>q.type===type);
-    const qs=type==='daily'?qsAll.filter(questActiveToday):qsAll;
+    const qs=(type==='daily'?qsAll.filter(questActiveToday):qsAll)
+      .slice().sort((a,b)=>(a.done===b.done)?0:a.done?1:-1);
     if(!qsAll.length)return;
     ap(p,div('q-section-hd',type==='daily'?'📅 Daily Quest':'🗓️ Weekly Quest'));
     if(!qs.length){ap(p,div('empty','Tidak ada daily quest untuk hari ini 🌙'));return;}
@@ -1477,20 +1514,27 @@ function renderJourneyTab(){
   const ov=overallLv(c.stats);
   const p=div('panel');
   ap(p,div('section-title','📜 Riwayat Perjalanan'));
+  const addMomentBtn=btn('add-btn','+ Catat Momen Sendiri',()=>{APP.showModal='addJourney';render();});
+  addMomentBtn.style.marginBottom='16px';
+  ap(p,addMomentBtn);
   const js=div('journey-start');
   ap(js,div('js-date','Dimulai pada '+start),div('js-title','Petualanganmu dimulai 🌰'),div('js-days','Hari ke-'+days+' • Level '+ov.level+' • '+totalXP(c.stats)+' XP total'));
   p.appendChild(js);
-  if(!APP.journey.length){ap(p,div('empty','Langkah besar pertamamu akan muncul di sini. Teruslah bermain! 🌱'));return p;}
-  const tl=div('timeline');
-  [...APP.journey].reverse().forEach(item=>{
-    const isBig=BIG_TYPES.includes(item.type);
-    const ti=div('tl-item');
-    const dot=div('tl-dot'+(isBig?' big':''),ICON_MAP[item.type]||'•');
-    const content=div('tl-content'+(isBig?' hl':''));
-    ap(content,div('tl-date',item.date),div('tl-title',item.title),item.sub?div('tl-sub',item.sub):null);
-    ap(ti,dot,content);tl.appendChild(ti);
-  });
-  ap(p,tl);return p;
+  if(!APP.journey.length){ap(p,div('empty','Langkah besar pertamamu akan muncul di sini. Teruslah bermain! 🌱'));}
+  else{
+    const tl=div('timeline');
+    [...APP.journey].reverse().forEach(item=>{
+      const isBig=BIG_TYPES.includes(item.type);
+      const isManual=item.type==='manual';
+      const ti=div('tl-item');
+      const dot=div('tl-dot'+(isBig?' big':'')+(isManual?' manual':''),ICON_MAP[item.type]||'•');
+      const content=div('tl-content'+(isBig?' hl':'')+(isManual?' manual':''));
+      ap(content,div('tl-date',item.date),div('tl-title',item.title),item.sub?div('tl-sub',item.sub):null);
+      ap(ti,dot,content);tl.appendChild(ti);
+    });
+    ap(p,tl);
+  }
+  return p;
 }
 
 // --- JOURNAL TAB ---
@@ -1683,7 +1727,12 @@ function renderFinanceTab(){
   );
   ap(p,sumGrid);
 
-  ap(p,div('q-section-hd','📊 Portofolio Investasi'));
+  const portfolioHd=div('q-section-hd');
+  portfolioHd.style.display='flex';portfolioHd.style.alignItems='center';portfolioHd.style.gap='6px';portfolioHd.style.justifyContent='space-between';
+  ap(portfolioHd,span('','📊 Portofolio Investasi'));
+  const infoIcon=btn('info-icon-btn','ℹ️',()=>{APP.showModal='financeInfo';render();});
+  ap(portfolioHd,infoIcon);
+  ap(p,portfolioHd);
   if(!APP.finance.length){
     ap(p,div('empty','Belum ada investasi. Mulai dari yang aman dulu (Deposito) atau coba peruntungan di Saham/Kripto/Trading! 💹'));
   } else {
@@ -1698,12 +1747,16 @@ function renderFinanceTab(){
       const pctEl=span('versus-delta '+(pct>=0?'up':'down'),(pct>=0?'+':'')+pct.toFixed(1)+'%');
       pctEl.style.flexShrink='0';pctEl.style.marginBottom='0';pctEl.style.minWidth='58px';pctEl.style.textAlign='right';
       ap(rc,iconEl,infoEl,pctEl);
+      const addBtn=btn('quick-add-btn','+',()=>{APP.investPresetType=h.type;APP.showModal='invest';render();});
+      addBtn.title='Tambah dana ke '+(t?t.name:h.type);addBtn.style.flexShrink='0';ap(rc,addBtn);
       const sellBtn=btn('reward-buy','Jual',()=>{withdrawInvestment(h.id);pushToast('💰','Investasi dicairkan','+'+Math.round(h.value)+' 🪙 masuk ke kas');render();});
       sellBtn.style.flexShrink='0';ap(rc,sellBtn);
       p.appendChild(rc);
     });
   }
-  ap(p,btn('add-btn','+ Investasi Baru',()=>{APP.showModal='invest';render();}));
+  const investBtn=btn('add-btn','+ Investasi Baru',()=>{APP.investPresetType=null;APP.showModal='invest';render();});
+  investBtn.style.marginBottom='20px';
+  ap(p,investBtn);
 
   // Koleksi Langka
   ap(p,div('q-section-hd','🖼️ Aset Koleksi Langka'));
@@ -1713,10 +1766,10 @@ function renderFinanceTab(){
     const cc=div('reward-card');cc.style.display='flex';cc.style.alignItems='center';cc.style.gap='10px';
     const iconEl=span('',def.icon);iconEl.style.fontSize='20px';iconEl.style.flexShrink='0';
     const infoEl=div('');infoEl.style.flex='1';infoEl.style.minWidth='0';
-    ap(infoEl,div('reward-name',def.name),div('reward-cost','Harga pasar saat ini: 🪙'+price.toLocaleString('id')));
+    ap(infoEl,div('reward-name',def.name),div('reward-cost','Harga pasar saat ini: 🪙'+price.toLocaleString('id')+' /unit'));
     ap(cc,iconEl,infoEl);
     const buyBtn=btn('reward-buy',APP.char.coins<price?'Belum cukup':'Beli',()=>{
-      if(buyCollectible(def.id)){pushToast(def.icon,'Aset dibeli!',def.name+' seharga 🪙'+price,true);render();}
+      APP.buyCollectibleType=def.id;APP.showModal='buyCollectible';render();
     });
     buyBtn.disabled=APP.char.coins<price;buyBtn.style.flexShrink='0';ap(cc,buyBtn);
     catWrap.appendChild(cc);
@@ -1726,48 +1779,119 @@ function renderFinanceTab(){
     ap(p,div('q-section-hd','Koleksi Milikmu'));
     APP.collectibles.forEach(h=>{
       const def=COLLECTIBLE_DEFS.find(d=>d.id===h.type);
-      const curPrice=collectibleMarketPrice(h.type);
-      const pct=h.buyPrice>0?((curPrice-h.buyPrice)/h.buyPrice*100):0;
+      const curUnitPrice=collectibleMarketPrice(h.type);
+      const curTotal=curUnitPrice*h.quantity;
+      const pct=h.totalCost>0?((curTotal-h.totalCost)/h.totalCost*100):0;
       const rc=div('reward-card');rc.style.display='flex';rc.style.alignItems='center';rc.style.gap='10px';
       const iconEl=span('',def?def.icon:'💎');iconEl.style.fontSize='20px';iconEl.style.flexShrink='0';
       const infoEl=div('');infoEl.style.flex='1';infoEl.style.minWidth='0';
-      ap(infoEl,div('reward-name',def?def.name:h.type),div('reward-cost','Beli: 🪙'+h.buyPrice+' → Sekarang: 🪙'+curPrice.toLocaleString('id')));
+      ap(infoEl,div('reward-name',(def?def.name:h.type)+' × '+h.quantity),div('reward-cost','Modal: 🪙'+h.totalCost+' → Nilai: 🪙'+Math.round(curTotal).toLocaleString('id')));
       const pctEl=span('versus-delta '+(pct>=0?'up':'down'),(pct>=0?'+':'')+pct.toFixed(1)+'%');
       pctEl.style.flexShrink='0';pctEl.style.marginBottom='0';pctEl.style.minWidth='58px';pctEl.style.textAlign='right';
       ap(rc,iconEl,infoEl,pctEl);
-      const sellBtn=btn('reward-buy','Jual',()=>{sellCollectible(h.id);pushToast('💰','Koleksi terjual','+'+curPrice.toLocaleString('id')+' 🪙 masuk ke kas');render();});
+      const addBtn=btn('quick-add-btn','+',()=>{APP.buyCollectibleType=h.type;APP.showModal='buyCollectible';render();});
+      addBtn.title='Tambah '+(def?def.name:h.type);addBtn.style.flexShrink='0';ap(rc,addBtn);
+      const sellBtn=btn('reward-buy','Jual',()=>{sellCollectible(h.id);pushToast('💰','Koleksi terjual','+'+Math.round(curTotal).toLocaleString('id')+' 🪙 masuk ke kas');render();});
       sellBtn.style.flexShrink='0';ap(rc,sellBtn);
       p.appendChild(rc);
     });
   }
   return p;
 }
+function renderBuyCollectibleModal(){
+  const typeId=APP.buyCollectibleType;
+  const def=COLLECTIBLE_DEFS.find(d=>d.id===typeId);
+  const unitPrice=collectibleMarketPrice(typeId);
+  const overlay=div('modal-overlay');const box=div('modal-box');
+  ap(box,el('h3','',(def?def.icon+' '+def.name:'Beli Aset')));
+  ap(box,div('refl-text','Harga saat ini: 🪙'+unitPrice.toLocaleString('id')+' per unit'));
+  let qty=1;
+  const fg=div('form-group');ap(fg,el('label','','Jumlah yang ingin dibeli'));
+  const qi=inp('',{type:'number',min:'1',value:'1'});
+  const totalLabel=div('refl-text','Total: 🪙'+unitPrice.toLocaleString('id'));totalLabel.style.marginTop='8px';totalLabel.style.fontWeight='600';
+  qi.oninput=e=>{qty=Math.max(1,parseInt(e.target.value)||1);totalLabel.textContent='Total: 🪙'+(unitPrice*qty).toLocaleString('id');};
+  ap(fg,qi,totalLabel);
+  const actions=div('modal-actions');
+  ap(actions,btn('btn btn-secondary','Batal',()=>{APP.showModal=null;APP.buyCollectibleType=null;render();}),
+    btn('btn btn-primary','Beli',()=>{
+      if(unitPrice*qty>APP.char.coins){pushToast('⚠️','Koin tidak cukup','Kas kamu cuma 🪙'+APP.char.coins);return;}
+      if(buyCollectible(typeId,qty)){
+        APP.showModal=null;APP.buyCollectibleType=null;
+        pushToast(def?def.icon:'🎁','Aset dibeli!',qty+'x '+(def?def.name:typeId),true);render();
+      }
+    }));
+  ap(box,fg,actions);
+  overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;APP.buyCollectibleType=null;render();}};
+  ap(overlay,box);return overlay;
+}
+function renderFinanceInfoModal(){
+  const overlay=div('modal-overlay');const box=div('modal-box');
+  ap(box,el('h3','','ℹ️ Panduan Instrumen Investasi'));
+  Object.keys(FINANCE_TYPES).forEach(k=>{
+    const t=FINANCE_TYPES[k];
+    const row=div('finance-info-row');
+    ap(row,el('div','finance-info-title',t.icon+' '+t.name));
+    ap(row,el('div','finance-info-desc',t.desc));
+    const stats=div('finance-info-stats');
+    ap(stats,
+      span('finance-info-tag','Risiko: '+t.risk),
+      span('finance-info-tag','Perubahan: '+t.rangeLabel),
+      span('finance-info-tag','Min: 🪙'+t.minInvest)
+    );
+    ap(row,stats);
+    ap(box,row);
+  });
+  const collRow=div('finance-info-row');
+  ap(collRow,el('div','finance-info-title','🖼️ Aset Koleksi Langka'));
+  ap(collRow,el('div','finance-info-desc','Harga pasarnya naik otomatis seiring waktu (bukan acak, bukan risiko turun) — makin cepat beli, makin murah. Tidak ada bunga harian; untungnya murni dari selisih harga naik saat dijual nanti.'));
+  ap(box,collRow);
+  COLLECTIBLE_DEFS.forEach(def=>{
+    const price=collectibleMarketPrice(def.id);
+    const row=div('finance-info-row');
+    ap(row,el('div','finance-info-title',def.icon+' '+def.name));
+    const stats=div('finance-info-stats');
+    ap(stats,
+      span('finance-info-tag','Kenaikan: '+def.growthLabel),
+      span('finance-info-tag','Harga awal: 🪙'+def.basePrice),
+      span('finance-info-tag','Harga sekarang: 🪙'+price.toLocaleString('id'))
+    );
+    ap(row,stats);
+    ap(box,row);
+  });
+  const actions=div('modal-actions');actions.style.marginTop='16px';
+  ap(actions,btn('btn btn-primary','Mengerti',()=>{APP.showModal=null;render();}));
+  ap(box,actions);
+  overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;render();}};
+  ap(overlay,box);return overlay;
+}
 function renderInvestModal(){
   const overlay=div('modal-overlay');const box=div('modal-box');
-  ap(box,el('h3','','📈 Investasi Baru'));
-  let type='deposito',amount=100;
+  const preset=APP.investPresetType&&FINANCE_TYPES[APP.investPresetType]?APP.investPresetType:'deposito';
+  ap(box,el('h3','',APP.investPresetType?'💰 Tambah Dana: '+FINANCE_TYPES[preset].name:'📈 Investasi Baru'));
+  let type=preset,amount=100;
   const fg1=div('form-group');ap(fg1,el('label','','Jenis Instrumen'));
-  const typeSel=sel('',Object.keys(FINANCE_TYPES).map(k=>({value:k,label:FINANCE_TYPES[k].icon+' '+FINANCE_TYPES[k].name})),'deposito');
+  const typeSel=sel('',Object.keys(FINANCE_TYPES).map(k=>({value:k,label:FINANCE_TYPES[k].icon+' '+FINANCE_TYPES[k].name})),preset);
+  typeSel.disabled=!!APP.investPresetType;
   typeSel.onchange=e=>{type=e.target.value;descEl.textContent=FINANCE_TYPES[type].desc;};
   ap(fg1,typeSel);
-  const descEl=el('div','refl-text',FINANCE_TYPES.deposito.desc);descEl.style.fontSize='12px';descEl.style.marginTop='6px';
+  const descEl=el('div','refl-text',FINANCE_TYPES[preset].desc);descEl.style.fontSize='12px';descEl.style.marginTop='6px';
   ap(fg1,descEl);
   const fg2=div('form-group');
   ap(fg2,el('label','','Jumlah Koin (kas tersedia: 🪙'+APP.char.coins+')'));
   const ai=inp('',{type:'number',min:'50',value:'100'});ai.oninput=e=>amount=parseInt(e.target.value)||0;
   ap(fg2,ai);
   const actions=div('modal-actions');
-  ap(actions,btn('btn btn-secondary','Batal',()=>{APP.showModal=null;render();}),btn('btn btn-primary','Investasikan',()=>{
+  ap(actions,btn('btn btn-secondary','Batal',()=>{APP.showModal=null;APP.investPresetType=null;render();}),btn('btn btn-primary','Investasikan',()=>{
     const t=FINANCE_TYPES[type];
     if(amount<t.minInvest){pushToast('⚠️','Minimal investasi',t.name+' minimal 🪙'+t.minInvest);return;}
     if(amount>APP.char.coins){pushToast('⚠️','Koin tidak cukup','Kas kamu cuma 🪙'+APP.char.coins);return;}
     if(investCoins(type,amount)){
-      APP.showModal=null;
+      APP.showModal=null;APP.investPresetType=null;
       pushToast(t.icon,'Investasi dimulai!','🪙'+amount+' masuk ke '+t.name,true);render();
     }
   }));
   ap(box,fg1,fg2,actions);
-  overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;render();}};
+  overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;APP.investPresetType=null;render();}};
   ap(overlay,box);return overlay;
 }
 
@@ -1932,6 +2056,25 @@ function renderBackupTab(){
 }
 
 // --- MODALS ---
+function renderAddJourneyModal(){
+  const overlay=div('modal-overlay');const box=div('modal-box');
+  ap(box,el('h3','','📝 Catat Momen Sendiri'));
+  let title='',sub='';
+  const fg1=div('form-group');ap(fg1,el('label','','Judul Momen'));
+  const ti=inp('',{placeholder:'Misal: Wisuda, dapat kerja baru, dll',type:'text'});ti.oninput=e=>title=e.target.value;ap(fg1,ti);
+  const fg2=div('form-group');ap(fg2,el('label','','Catatan (opsional)'));
+  const si=inp('',{placeholder:'Ceritakan sedikit tentang momen ini',type:'text'});si.oninput=e=>sub=e.target.value;ap(fg2,si);
+  const actions=div('modal-actions');
+  ap(actions,btn('btn btn-secondary','Batal',()=>{APP.showModal=null;render();}),btn('btn btn-primary','Simpan',()=>{
+    if(!title.trim())return;
+    addJourneyItem('manual',title.trim(),sub.trim());
+    APP.showModal=null;
+    pushToast('📝','Momen dicatat!',title.trim());render();
+  }));
+  ap(box,fg1,fg2,actions);
+  overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;render();}};
+  ap(overlay,box);return overlay;
+}
 function renderAddQuestModal(){
   const overlay=div('modal-overlay');
   const box=div('modal-box');
@@ -2163,6 +2306,9 @@ function render(){
   if(APP.showModal==='deleteConfirm') root.appendChild(renderDeleteModal());
   if(APP.showModal==='deleteBoss')    root.appendChild(renderDeleteBossModal());
   if(APP.showModal==='invest')        root.appendChild(renderInvestModal());
+  if(APP.showModal==='addJourney')    root.appendChild(renderAddJourneyModal());
+  if(APP.showModal==='financeInfo')   root.appendChild(renderFinanceInfoModal());
+  if(APP.showModal==='buyCollectible') root.appendChild(renderBuyCollectibleModal());
 
   // toasts
   renderToasts();
