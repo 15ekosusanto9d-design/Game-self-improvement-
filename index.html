@@ -73,6 +73,10 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .quest-tag{padding:1px 6px;border-radius:10px;border:1px solid var(--border);}
 .quest-reward{font-size:11px;color:var(--amber);}
 .quest-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;padding:4px 5px;flex-shrink:0;opacity:0.5;line-height:1;}
+.quest-edit-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px 5px;flex-shrink:0;opacity:0.5;line-height:1;-webkit-tap-highlight-color:transparent;}
+.quest-edit-btn:hover{opacity:1;}
+.priority-badge{font-size:9px;padding:1px 6px;border-radius:5px;font-weight:700;border:1px solid;flex-shrink:0;}
+.quest-time-hd{font-size:12px;color:var(--muted);font-weight:600;margin:10px 0 6px;padding-left:2px;}
 .quest-del:hover{opacity:1;color:var(--danger);}
 .add-btn{width:100%;margin-top:10px;background:transparent;border:1.5px dashed var(--border);color:var(--muted);padding:11px;border-radius:10px;cursor:pointer;font-size:13px;transition:all 0.2s;font-family:'Inter',sans-serif;}
 .add-btn:hover{border-color:var(--cyan-l);color:var(--cyan-l);}
@@ -248,6 +252,7 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .finance-info-desc{font-size:12px;color:var(--muted);line-height:1.4;}
 .finance-info-stats{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .finance-info-tag{font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.25);color:var(--cyan-l);}
+.finance-info-tag.dividend{background:rgba(52,211,153,0.14);border-color:rgba(52,211,153,0.3);color:var(--teal);}
 .quick-add-btn{background:rgba(52,211,153,0.15);border:1px solid var(--teal);color:var(--teal);width:28px;height:28px;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;}
 .bk-card h4{font-size:13px;color:var(--text);font-weight:600;margin-bottom:4px;}
 .bk-card p{font-size:11px;color:var(--muted);line-height:1.5;margin-bottom:10px;}
@@ -454,15 +459,20 @@ function seededRand(seedNum){const x=Math.sin(seedNum)*10000;return x-Math.floor
 function hashStr(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return Math.abs(h);}
 function seededRange(seed,min,max){return min+seededRand(seed)*(max-min);}
 const FINANCE_TYPES={
-  deposito:{name:'Deposito',icon:'🏦',desc:'Aman, bunga tetap kecil tiap hari',minInvest:50,risk:'Sangat Rendah',rangeLabel:'+0.3%/hari (tetap, tidak pernah rugi)',
+  deposito:{name:'Deposito',icon:'🏦',desc:'Aman, bunga tetap kecil tiap hari',minInvest:50,risk:'Sangat Rendah',rangeLabel:'+0.3%/hari (tetap, tidak pernah rugi)',dividendRate:0,
     rate:()=>0.003}, // +0.3%/hari, selalu positif
-  saham:{name:'Saham Virtual',icon:'📈',desc:'Risiko sedang, naik-turun harian',minInvest:50,risk:'Sedang',rangeLabel:'-3% s/d +4.5% per hari',
-    rate:(seed)=>seededRange(seed,-0.03,0.045)}, // -3% s/d +4.5%/hari
-  kripto:{name:'Kripto Virtual',icon:'🪙',desc:'Risiko tinggi, sangat fluktuatif',minInvest:50,risk:'Tinggi',rangeLabel:'-10% s/d +10% per hari',
-    rate:(seed)=>seededRange(seed,-0.10,0.10)}, // -10% s/d +10%/hari (disamakan, tidak lebih dari 10%)
-  trading:{name:'Trading Cepat',icon:'⚡',desc:'Super cepat, berubah tiap 5 menit (maks ±10%)',minInvest:50,risk:'Sangat Tinggi',rangeLabel:'-10% s/d +10% per 5 menit',
-    interval:'window',rate:(seed)=>seededRange(seed,-0.10,0.10)}, // ±10% tiap jendela 5 menit
+  saham_konsumer:{name:'Saham Konsumer',icon:'🛒',desc:'Stabil, cocok buat pemula — fluktuasi kecil',minInvest:50,risk:'Rendah',rangeLabel:'-0.9% s/d +1.7% per hari',dividendRate:0.01,
+    rate:(seed)=>seededRange(seed,-0.009,0.017)}, // rata-rata harga ~0.4%/hari, ayunan sempit
+  saham_energi:{name:'Saham Energi',icon:'⚡📊',desc:'Risiko sedang, naik-turun harian',minInvest:50,risk:'Sedang',rangeLabel:'-2.8% s/d +3.6% per hari',dividendRate:0.01,
+    rate:(seed)=>seededRange(seed,-0.028,0.036)}, // rata-rata harga ~0.4%/hari, ayunan sedang
+  saham_tech:{name:'Saham Teknologi',icon:'💻',desc:'Berpeluang tinggi tapi lebih liar — buat yang berani',minInvest:50,risk:'Tinggi',rangeLabel:'-5.6% s/d +6.4% per hari',dividendRate:0.01,
+    rate:(seed)=>seededRange(seed,-0.056,0.064)}, // rata-rata harga ~0.4%/hari, ayunan lebar
+  kripto:{name:'Kripto Virtual',icon:'🪙',desc:'Risiko tinggi, sangat fluktuatif',minInvest:50,risk:'Tinggi',rangeLabel:'-9% s/d +9.6% per hari',dividendRate:0,
+    rate:(seed)=>seededRange(seed,-0.09,0.096)}, // rata-rata ~0.3%/hari (setara Deposito), tapi ayunan ekstrem
+  trading:{name:'Trading Cepat',icon:'⚡',desc:'Super cepat, berubah tiap 5 menit (maks ±10%)',minInvest:50,risk:'Sangat Tinggi',rangeLabel:'-10% s/d +10% per 5 menit',dividendRate:0,
+    interval:'window',rate:(seed)=>seededRange(seed,-0.10,0.10)}, // ±10% tiap jendela 5 menit — murni hiburan/spekulasi cepat
 };
+const OLD_SAHAM_ALIAS='saham_energi'; // migrasi data lama yang masih pakai id 'saham' generik
 const TRADING_WINDOW_MS=5*60*1000;
 function tradingWindowKey(ts){return Math.floor(ts/TRADING_WINDOW_MS);}
 // Update nilai semua holding — instrumen harian (deposito/saham/kripto) sekali per hari,
@@ -472,7 +482,8 @@ function tradingWindowKey(ts){return Math.floor(ts/TRADING_WINDOW_MS);}
 function updateFinanceDaily(){
   const today=todayStr();
   const winKey=tradingWindowKey(Date.now());
-  let changed=false;
+  let changed=false,charChanged=false;
+  const dividendLog=[];
   APP.finance.forEach(h=>{
     const type=FINANCE_TYPES[h.type];
     if(!type)return;
@@ -487,11 +498,27 @@ function updateFinanceDaily(){
       const dateSeed=parseInt(today.replace(/-/g,''),10);
       const seed=dateSeed+hashStr(h.id);
       h.value=Math.max(0,h.value*(1+type.rate(seed)));
+      // Dividen: bonus koin harian terpisah dari naik-turun harga, dibayar tunai ke kas
+      // (bukan ditambahkan ke nilai holding) — jadi selalu dapat sesuatu tiap hari selama pegang saham.
+      if(type.dividendRate>0&&APP.char){
+        const div=Math.round(h.value*type.dividendRate);
+        if(div>0){
+          APP.char.coins+=div;
+          APP.char.totalCoinsEarned=(APP.char.totalCoinsEarned||0)+div;
+          dividendLog.push({type:type.name,amount:div});
+          charChanged=true;
+        }
+      }
       h.lastUpdateDate=today;
       changed=true;
     }
   });
   if(changed)lsSetSync('finance',APP.finance);
+  if(charChanged){
+    saveChar();
+    const total=dividendLog.reduce((a,d)=>a+d.amount,0);
+    if(total>0)setTimeout(()=>pushToast('💵','Dividen Diterima!','+'+total+' 🪙 dari '+dividendLog.length+' saham',true),1200);
+  }
 }
 function financeNetWorth(){
   const investVal=APP.finance.reduce((a,h)=>a+h.value,0);
@@ -510,13 +537,22 @@ function investCoins(type,amount){
   lsSetSync('finance',APP.finance);
   return true;
 }
-function withdrawInvestment(id){
+function withdrawInvestment(id,amount){
   const h=APP.finance.find(x=>x.id===id);
   if(!h)return;
-  APP.char.coins+=Math.round(h.value);
-  APP.char.totalCoinsEarned=(APP.char.totalCoinsEarned||0)+Math.max(0,Math.round(h.value)-h.principal);
+  const sellAmount=amount==null?h.value:Math.min(amount,h.value);
+  if(sellAmount<=0)return;
+  const frac=sellAmount/h.value;
+  const principalPortion=h.principal*frac;
+  APP.char.coins+=Math.round(sellAmount);
+  APP.char.totalCoinsEarned=(APP.char.totalCoinsEarned||0)+Math.max(0,Math.round(sellAmount)-principalPortion);
   saveChar();
-  APP.finance=APP.finance.filter(x=>x.id!==id);
+  if(sellAmount>=h.value-0.01){
+    APP.finance=APP.finance.filter(x=>x.id!==id);
+  } else {
+    h.value-=sellAmount;
+    h.principal-=principalPortion;
+  }
   lsSetSync('finance',APP.finance);
 }
 
@@ -548,15 +584,23 @@ function buyCollectible(typeId,qty){
   lsSetSync('collectibles',APP.collectibles);
   return true;
 }
-function sellCollectible(id){
+function sellCollectible(id,qty){
   const h=APP.collectibles.find(x=>x.id===id);
   if(!h)return;
+  const sellQty=qty==null?h.quantity:Math.min(qty,h.quantity);
+  if(sellQty<=0)return;
   const unitPrice=collectibleMarketPrice(h.type);
-  const total=Math.round(unitPrice*h.quantity);
+  const total=Math.round(unitPrice*sellQty);
+  const costPortion=h.totalCost*(sellQty/h.quantity);
   APP.char.coins+=total;
-  APP.char.totalCoinsEarned=(APP.char.totalCoinsEarned||0)+Math.max(0,total-h.totalCost);
+  APP.char.totalCoinsEarned=(APP.char.totalCoinsEarned||0)+Math.max(0,total-costPortion);
   saveChar();
-  APP.collectibles=APP.collectibles.filter(x=>x.id!==id);
+  if(sellQty>=h.quantity){
+    APP.collectibles=APP.collectibles.filter(x=>x.id!==id);
+  } else {
+    h.quantity-=sellQty;
+    h.totalCost-=costPortion;
+  }
   lsSetSync('collectibles',APP.collectibles);
 }
 function getTodayRandomEvent(){
@@ -662,6 +706,7 @@ function defaultChar(){return{name:'Petualang',stats:{body:0,mind:0,career:0,soc
   totalCoinsEarned:0,earlyBirdCount:0,nightOwlCount:0,weekendQuestCount:0,renaissanceCount:0,
   subTicksTotal:0,weeklyQuestsDone:0,dowCompleted:[false,false,false,false,false,false,false],
   comebackCount:0,eventsSeen:[],todayQuestCount:0,todayQuestDate:null,maxQuestsInDay:0,randomFreezeClaimedDate:null,
+  dailyMilestoneDate:null,dailyMilestonesClaimed:[],
   gems:0,streakMilestonesSeen:[]};}
 function defaultQuests(){return[
   {id:uid(),title:'Minum air putih 8 gelas',stat:'body',type:'daily',xp:50,coin:10,done:false},
@@ -718,10 +763,11 @@ const APP={
   chartRange:30,
   showModal:null,   // 'addQuest'|'addReward'|'deleteConfirm'|'rivalDetail'|'deleteBoss'
   rivalDetail:null, // rival id
-  editQuest:null,
+  editQuestId:null,
   autoSyncInt:null,tradingInt:null,
   lastAction:null,  // {questId, ts, charSnap, prevQuestState} — undo untuk misklik, cuma tersimpan di memori (hilang saat refresh)
   deleteBossId:null,diagnosticResults:null,investPresetType:null,buyCollectibleType:null,
+  sellFinanceId:null,sellCollectibleId:null,
 };
 
 function lsLoad(){
@@ -740,7 +786,10 @@ function lsLoad(){
   let reflections=toArr(lsGet('reflections'));
   let achievEvs=toArr(lsGet('achiev_events'));
   let journey=toArr(lsGet('journey'));
-  let finance=toArr(lsGet('finance')).filter(h=>h&&typeof h==='object'&&FINANCE_TYPES[h.type]);
+  let finance=toArr(lsGet('finance')).map(h=>{
+    if(h&&h.type==='saham')h={...h,type:OLD_SAHAM_ALIAS}; // migrasi: 'saham' generik lama -> Saham Energi
+    return h;
+  }).filter(h=>h&&typeof h==='object'&&FINANCE_TYPES[h.type]);
   const finMerged={};
   finance.forEach(h=>{
     if(finMerged[h.type]){finMerged[h.type].principal+=h.principal;finMerged[h.type].value+=h.value;}
@@ -807,6 +856,8 @@ function lsLoad(){
   if(char.todayQuestDate===undefined)char.todayQuestDate=null;
   if(typeof char.maxQuestsInDay!=='number')char.maxQuestsInDay=0;
   if(char.randomFreezeClaimedDate===undefined)char.randomFreezeClaimedDate=null;
+  if(char.dailyMilestoneDate===undefined)char.dailyMilestoneDate=null;
+  if(!Array.isArray(char.dailyMilestonesClaimed))char.dailyMilestonesClaimed=[];
   if(typeof char.gems!=='number')char.gems=0;
   if(!Array.isArray(char.streakMilestonesSeen))char.streakMilestonesSeen=[];
   if(char.questsCompletedTotal!=null&&char.questsDone==null)char.questsDone=char.questsCompletedTotal;
@@ -893,7 +944,8 @@ function snapshotChar(c){
     weekendQuestCount:c.weekendQuestCount,renaissanceCount:c.renaissanceCount,subTicksTotal:c.subTicksTotal,
     weeklyQuestsDone:c.weeklyQuestsDone,dowCompleted:[...(c.dowCompleted||[])],comebackCount:c.comebackCount,
     eventsSeen:[...(c.eventsSeen||[])],todayQuestCount:c.todayQuestCount,todayQuestDate:c.todayQuestDate,
-    maxQuestsInDay:c.maxQuestsInDay,gems:c.gems,streakMilestonesSeen:[...(c.streakMilestonesSeen||[])]};
+    maxQuestsInDay:c.maxQuestsInDay,gems:c.gems,streakMilestonesSeen:[...(c.streakMilestonesSeen||[])],
+    dailyMilestoneDate:c.dailyMilestoneDate,dailyMilestonesClaimed:[...(c.dailyMilestonesClaimed||[])]};
 }
 // undoLastAction: hanya bisa membatalkan AKSI TERAKHIR (bukan sembarang quest lama),
 // supaya tidak menghapus progres quest lain yang mungkin sudah dikerjakan setelahnya.
@@ -974,6 +1026,24 @@ function applyQuestReward(q,xpAmount,coinAmount,isFinal,isBossDone,ts){
   if(c.todayQuestDate!==today){c.todayQuestDate=today;c.todayQuestCount=0;}
   c.todayQuestCount=(c.todayQuestCount||0)+1;
   if(c.todayQuestCount>(c.maxQuestsInDay||0))c.maxQuestsInDay=c.todayQuestCount;
+
+  // Hadiah milestone jumlah quest per hari — sengaja cuma koin (bukan XP), biar jadi "dopamin" instan
+  // yang terpisah dari progres level, sesuai permintaan.
+  if(c.dailyMilestoneDate!==today){c.dailyMilestoneDate=today;c.dailyMilestonesClaimed=[];}
+  const dmClaimed=c.dailyMilestonesClaimed;
+  [{key:5,coin:100},{key:10,coin:250}].forEach((m,mi)=>{
+    if(c.todayQuestCount>=m.key&&!dmClaimed.includes(m.key)){
+      c.coins+=m.coin;c.totalCoinsEarned=(c.totalCoinsEarned||0)+m.coin;
+      dmClaimed.push(m.key);
+      setTimeout(()=>pushToast('🎯','Milestone '+m.key+' Quest Hari Ini!','+'+m.coin+' 🪙 bonus',true),950+mi*350);
+    }
+  });
+  const activeDailies=APP.quests.filter(qq=>qq.type==='daily'&&questActiveToday(qq));
+  if(activeDailies.length&&activeDailies.every(qq=>qq.done)&&!dmClaimed.includes('all')){
+    c.coins+=250;c.totalCoinsEarned=(c.totalCoinsEarned||0)+250;c.gems=(c.gems||0)+1;
+    dmClaimed.push('all');
+    setTimeout(()=>pushToast('🏆','Semua Quest Hari Ini Selesai!','+250 🪙 +1 💎 — luar biasa!',true),1700);
+  }
 
   saveChar();saveQuests();
 
@@ -1257,6 +1327,46 @@ function renderQuestTab(){
   }
   // daily & weekly
   const p=div('panel');
+  const renderQuestCard=(q)=>{
+    const s=STATS[q.stat]||STATS.discipline;
+    const hasSub=q.sub&&q.sub>1;
+    const prio=q.priority?priorityInfo(q.priority):null;
+    const qc=div('quest-card'+(q.done?' done':''));
+    if(prio){qc.style.border='2px solid '+prio.color;qc.style.boxShadow='0 0 0 1px '+prio.color+'33 inset';}
+    let chk;
+    if(hasSub){
+      chk=div('sub-check-wrap');
+      const subDone=q.subDone||0;
+      for(let i=0;i<q.sub;i++){
+        const dot=div('sub-dot'+(i<subDone?' filled':''),i<subDone?'✓':'');
+        if(i===subDone&&!q.done){dot.style.cursor='pointer';dot.onclick=function(e){e.stopPropagation();tickSubQuest(q.id);};}
+        chk.appendChild(dot);
+      }
+    } else {
+      chk=div('quest-check'+(q.done?' checked':''),q.done?'✓':'');chk.style.cursor='pointer';chk.style.minWidth='28px';
+      if(!q.done){
+        chk.onclick=function(e){e.stopPropagation();completeQuest(q.id);};
+        chk.style.cursor='pointer';
+      }
+    }
+    const body=div('quest-body');
+    const titleRow=div('');titleRow.style.display='flex';titleRow.style.alignItems='center';titleRow.style.gap='6px';
+    ap(titleRow,div('quest-title'+(q.done?' done':''),q.title));
+    if(prio){const pb=span('priority-badge','P'+prio.v);pb.style.background=prio.color+'26';pb.style.color=prio.color;pb.style.borderColor=prio.color+'55';ap(titleRow,pb);}
+    ap(body,titleRow);
+    const meta=div('quest-meta');
+    ap(meta,span('quest-tag',s.emoji+' '+s.label),span('quest-reward','+'+q.xp+' XP • 🪙+'+q.coin));
+    if(hasSub)ap(meta,span('quest-tag',(q.subDone||0)+'/'+q.sub+' selesai'));
+    if(q.type==='daily'&&q.days&&q.days.length)ap(meta,span('quest-tag',q.days.slice().sort().map(d=>DOW_LABELS[d]).join('/')));
+    ap(body,meta);
+    if(APP.lastAction&&APP.lastAction.questId===q.id){
+      ap(body,btn('btn-undo','↺ Batalkan',()=>undoLastAction()));
+    }
+    const editBtn=btn('quest-edit-btn','✏️',()=>{APP.editQuestId=q.id;APP.showModal='addQuest';render();});
+    const del=btn('quest-del','×',()=>{APP.quests=APP.quests.filter(x=>x.id!==q.id);saveQuests();render();});
+    ap(qc,chk,body,editBtn,del);
+    return qc;
+  };
   ['daily','weekly'].forEach(type=>{
     const qsAll=APP.quests.filter(q=>q.type===type);
     const qs=(type==='daily'?qsAll.filter(questActiveToday):qsAll)
@@ -1264,44 +1374,26 @@ function renderQuestTab(){
     if(!qsAll.length)return;
     ap(p,div('q-section-hd',type==='daily'?'📅 Daily Quest':'🗓️ Weekly Quest'));
     if(!qs.length){ap(p,div('empty','Tidak ada daily quest untuk hari ini 🌙'));return;}
-    const ql=div('quest-list');
-    qs.forEach(q=>{
-      const s=STATS[q.stat]||STATS.discipline;
-      const hasSub=q.sub&&q.sub>1;
-      const qc=div('quest-card'+(q.done?' done':''));
-      let chk;
-      if(hasSub){
-        chk=div('sub-check-wrap');
-        const subDone=q.subDone||0;
-        for(let i=0;i<q.sub;i++){
-          const dot=div('sub-dot'+(i<subDone?' filled':''),i<subDone?'✓':'');
-          if(i===subDone&&!q.done){dot.style.cursor='pointer';dot.onclick=function(e){e.stopPropagation();tickSubQuest(q.id);};}
-          chk.appendChild(dot);
-        }
-      } else {
-        chk=div('quest-check'+(q.done?' checked':''),q.done?'✓':'');chk.style.cursor='pointer';chk.style.minWidth='28px';
-        if(!q.done){
-          chk.onclick=function(e){e.stopPropagation();completeQuest(q.id);};
-          chk.style.cursor='pointer';
-        }
-      }
-      const body=div('quest-body');
-      ap(body,div('quest-title'+(q.done?' done':''),q.title));
-      const meta=div('quest-meta');
-      ap(meta,span('quest-tag',s.emoji+' '+s.label),span('quest-reward','+'+q.xp+' XP • 🪙+'+q.coin));
-      if(hasSub)ap(meta,span('quest-tag',(q.subDone||0)+'/'+q.sub+' selesai'));
-      if(q.type==='daily'&&q.days&&q.days.length)ap(meta,span('quest-tag',q.days.slice().sort().map(d=>DOW_LABELS[d]).join('/')));
-      ap(body,meta);
-      if(APP.lastAction&&APP.lastAction.questId===q.id){
-        ap(body,btn('btn-undo','↺ Batalkan',()=>undoLastAction()));
-      }
-      const del=btn('quest-del','×',()=>{APP.quests=APP.quests.filter(x=>x.id!==q.id);saveQuests();render();});
-      ap(qc,chk,body,del);ql.appendChild(qc);
-    });
-    ap(p,ql,div('','\u00a0'));
+    if(type==='daily'){
+      // kelompokkan per waktu pengerjaan: Pagi/Siang/Sore/Malam, lalu sisanya "Kapan Saja"
+      const groups=[...TIME_PERIODS.map(t=>({...t,items:qs.filter(q=>q.timePeriod===t.id)})),
+        {id:'',label:'🕐 Kapan Saja',items:qs.filter(q=>!q.timePeriod)}];
+      groups.forEach(g=>{
+        if(!g.items.length)return;
+        const gh=div('quest-time-hd',g.label);ap(p,gh);
+        const ql=div('quest-list');
+        g.items.forEach(q=>ql.appendChild(renderQuestCard(q)));
+        ap(p,ql);
+      });
+      ap(p,div('','\u00a0'));
+    } else {
+      const ql=div('quest-list');
+      qs.forEach(q=>ql.appendChild(renderQuestCard(q)));
+      ap(p,ql,div('','\u00a0'));
+    }
   });
   if(APP.quests.filter(q=>q.type!=='boss').length===0){ap(p,div('empty','Belum ada quest. Tambahkan satu untuk mulai! 🌱'));}
-  const addB=btn('add-btn','+ Tambah Quest Baru',()=>{APP.showModal='addQuest';render();});
+  const addB=btn('add-btn','+ Tambah Quest Baru',()=>{APP.editQuestId=null;APP.showModal='addQuest';render();});
   ap(p,addB);f.appendChild(p);
   return f;
 }
@@ -1749,7 +1841,7 @@ function renderFinanceTab(){
       ap(rc,iconEl,infoEl,pctEl);
       const addBtn=btn('quick-add-btn','+',()=>{APP.investPresetType=h.type;APP.showModal='invest';render();});
       addBtn.title='Tambah dana ke '+(t?t.name:h.type);addBtn.style.flexShrink='0';ap(rc,addBtn);
-      const sellBtn=btn('reward-buy','Jual',()=>{withdrawInvestment(h.id);pushToast('💰','Investasi dicairkan','+'+Math.round(h.value)+' 🪙 masuk ke kas');render();});
+      const sellBtn=btn('reward-buy','Jual',()=>{APP.sellFinanceId=h.id;APP.showModal='sellInvest';render();});
       sellBtn.style.flexShrink='0';ap(rc,sellBtn);
       p.appendChild(rc);
     });
@@ -1791,12 +1883,67 @@ function renderFinanceTab(){
       ap(rc,iconEl,infoEl,pctEl);
       const addBtn=btn('quick-add-btn','+',()=>{APP.buyCollectibleType=h.type;APP.showModal='buyCollectible';render();});
       addBtn.title='Tambah '+(def?def.name:h.type);addBtn.style.flexShrink='0';ap(rc,addBtn);
-      const sellBtn=btn('reward-buy','Jual',()=>{sellCollectible(h.id);pushToast('💰','Koleksi terjual','+'+Math.round(curTotal).toLocaleString('id')+' 🪙 masuk ke kas');render();});
+      const sellBtn=btn('reward-buy','Jual',()=>{APP.sellCollectibleId=h.id;APP.showModal='sellCollectible';render();});
       sellBtn.style.flexShrink='0';ap(rc,sellBtn);
       p.appendChild(rc);
     });
   }
   return p;
+}
+function renderSellInvestModal(){
+  const h=APP.finance.find(x=>x.id===APP.sellFinanceId);
+  if(!h){APP.showModal=null;return div('');}
+  const t=FINANCE_TYPES[h.type];
+  const overlay=div('modal-overlay');const box=div('modal-box');
+  ap(box,el('h3','','💰 Jual '+(t?t.name:h.type)));
+  ap(box,div('refl-text','Nilai saat ini: 🪙'+Math.round(h.value).toLocaleString('id')));
+  let amount=Math.round(h.value);
+  const fg=div('form-group');ap(fg,el('label','','Jumlah yang ingin dijual (maks 🪙'+Math.round(h.value)+')'));
+  const ai=inp('',{type:'number',min:'1',max:String(Math.round(h.value)),value:String(Math.round(h.value))});
+  ai.oninput=e=>amount=Math.max(1,Math.min(Math.round(h.value),parseInt(e.target.value)||0));
+  ap(fg,ai);
+  const quickRow=div('');quickRow.style.display='flex';quickRow.style.gap='6px';quickRow.style.marginTop='8px';
+  [25,50,100].forEach(pct=>{
+    const qb=btn('day-btn',pct+'%',()=>{amount=Math.round(h.value*pct/100);ai.value=amount;});
+    quickRow.appendChild(qb);
+  });
+  ap(fg,quickRow);
+  const actions=div('modal-actions');
+  ap(actions,btn('btn btn-secondary','Batal',()=>{APP.showModal=null;APP.sellFinanceId=null;render();}),
+    btn('btn btn-primary','Jual',()=>{
+      withdrawInvestment(h.id,amount);
+      APP.showModal=null;APP.sellFinanceId=null;
+      pushToast('💰','Investasi dicairkan','+'+amount+' 🪙 masuk ke kas');render();
+    }));
+  ap(box,fg,actions);
+  overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;APP.sellFinanceId=null;render();}};
+  ap(overlay,box);return overlay;
+}
+function renderSellCollectibleModal(){
+  const h=APP.collectibles.find(x=>x.id===APP.sellCollectibleId);
+  if(!h){APP.showModal=null;return div('');}
+  const def=COLLECTIBLE_DEFS.find(d=>d.id===h.type);
+  const unitPrice=collectibleMarketPrice(h.type);
+  const overlay=div('modal-overlay');const box=div('modal-box');
+  ap(box,el('h3','','💰 Jual '+(def?def.name:h.type)));
+  ap(box,div('refl-text','Kamu punya '+h.quantity+' unit, harga sekarang 🪙'+unitPrice.toLocaleString('id')+'/unit'));
+  let qty=h.quantity;
+  const fg=div('form-group');ap(fg,el('label','','Jumlah unit yang ingin dijual (maks '+h.quantity+')'));
+  const qi=inp('',{type:'number',min:'1',max:String(h.quantity),value:String(h.quantity)});
+  const totalLabel=div('refl-text','Total: 🪙'+Math.round(unitPrice*h.quantity).toLocaleString('id'));totalLabel.style.marginTop='8px';totalLabel.style.fontWeight='600';
+  qi.oninput=e=>{qty=Math.max(1,Math.min(h.quantity,parseInt(e.target.value)||1));totalLabel.textContent='Total: 🪙'+Math.round(unitPrice*qty).toLocaleString('id');};
+  ap(fg,qi,totalLabel);
+  const actions=div('modal-actions');
+  ap(actions,btn('btn btn-secondary','Batal',()=>{APP.showModal=null;APP.sellCollectibleId=null;render();}),
+    btn('btn btn-primary','Jual',()=>{
+      const total=Math.round(unitPrice*qty);
+      sellCollectible(h.id,qty);
+      APP.showModal=null;APP.sellCollectibleId=null;
+      pushToast('💰','Koleksi terjual','+'+total.toLocaleString('id')+' 🪙 masuk ke kas');render();
+    }));
+  ap(box,fg,actions);
+  overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;APP.sellCollectibleId=null;render();}};
+  ap(overlay,box);return overlay;
 }
 function renderBuyCollectibleModal(){
   const typeId=APP.buyCollectibleType;
@@ -1838,6 +1985,7 @@ function renderFinanceInfoModal(){
       span('finance-info-tag','Perubahan: '+t.rangeLabel),
       span('finance-info-tag','Min: 🪙'+t.minInvest)
     );
+    if(t.dividendRate>0)ap(stats,span('finance-info-tag dividend','Dividen: +'+(t.dividendRate*100).toFixed(2)+'%/hari (tunai)'));
     ap(row,stats);
     ap(box,row);
   });
@@ -2075,56 +2223,96 @@ function renderAddJourneyModal(){
   overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;render();}};
   ap(overlay,box);return overlay;
 }
+const PRIORITY_LEVELS=[
+  {v:1,label:'🔴 Prioritas 1 (Paling Penting)',color:'#F87171'},
+  {v:2,label:'🟠 Prioritas 2',color:'#FB923C'},
+  {v:3,label:'🟡 Prioritas 3',color:'#FBBF24'},
+  {v:4,label:'🔵 Prioritas 4',color:'#38BDF8'},
+  {v:5,label:'⚪ Prioritas 5 (Paling Rendah)',color:'#94A3B8'},
+];
+function priorityInfo(p){return PRIORITY_LEVELS.find(x=>x.v===p)||null;}
+const TIME_PERIODS=[
+  {id:'pagi',label:'🌅 Pagi'},{id:'siang',label:'☀️ Siang'},
+  {id:'sore',label:'🌇 Sore'},{id:'malam',label:'🌙 Malam'},
+];
 function renderAddQuestModal(){
+  const editing=APP.editQuestId?APP.quests.find(x=>x.id===APP.editQuestId):null;
   const overlay=div('modal-overlay');
   const box=div('modal-box');
-  ap(box,el('h3','','✏️ Buat Quest Baru'));
-  let title='',stat='body',type='daily',xp=10,coin=10,bossTgt=5,days=[],subCount=1;
+  ap(box,el('h3','',editing?'✏️ Edit Quest':'✏️ Buat Quest Baru'));
+  let title=editing?editing.title:'',stat=editing?editing.stat:'body',type=editing?editing.type:'daily',
+    xp=editing?editing.xp:10,coin=editing?editing.coin:10,bossTgt=editing&&editing.boss?editing.boss.target:5,
+    days=editing&&editing.days?editing.days.slice():[],subCount=editing&&editing.sub?editing.sub:1,
+    priority=editing&&editing.priority?editing.priority:null,timePeriod=editing&&editing.timePeriod?editing.timePeriod:null;
   const statDefaults={body:{xp:10,coin:10},mind:{xp:2,coin:4},career:{xp:2,coin:5},social:{xp:5,coin:10},discipline:{xp:15,coin:15}};
-  const fg1=div('form-group');ap(fg1,el('label','','Nama Quest'));const ti=inp('',{placeholder:'Misal: Lari pagi 20 menit',type:'text'});ti.oninput=e=>title=e.target.value;ap(fg1,ti);
+  const fg1=div('form-group');ap(fg1,el('label','','Nama Quest'));const ti=inp('',{placeholder:'Misal: Lari pagi 20 menit',type:'text',value:title});ti.oninput=e=>title=e.target.value;ap(fg1,ti);
   const fg2=div('form-group');ap(fg2,el('label','','Stat yang dilatih'));
-  const statSel=sel('',STAT_KEYS.map(k=>({value:k,label:STATS[k].emoji+' '+STATS[k].label})),'body');
+  const statSel=sel('',STAT_KEYS.map(k=>({value:k,label:STATS[k].emoji+' '+STATS[k].label})),stat);
   statSel.onchange=e=>{
     stat=e.target.value;
-    const d=statDefaults[stat]||{xp:10,coin:10};
-    xp=d.xp;coin=d.coin;
-    xi.value=xp;ci.value=coin;
+    if(!editing){const d=statDefaults[stat]||{xp:10,coin:10};xp=d.xp;coin=d.coin;xi.value=xp;ci.value=coin;}
   };ap(fg2,statSel);
   const fg3=div('form-group');ap(fg3,el('label','','Jenis Quest'));
-  const typeSel=sel('',[{value:'daily',label:'📅 Daily — diulang tiap hari'},{value:'weekly',label:'🗓️ Weekly — target mingguan'},{value:'boss',label:'👑 Boss — tujuan besar'}],'daily');
-  typeSel.onchange=e=>{type=e.target.value;bossFg.style.display=type==='boss'?'block':'none';dayFg.style.display=type==='daily'?'block':'none';subFg.style.display=type==='boss'?'none':'block';};ap(fg3,typeSel);
-  const bossFg=div('form-group');bossFg.style.display='none';ap(bossFg,el('label','','Berapa milestone?'));const bti=inp('',{type:'number',min:'2',value:'5'});bti.oninput=e=>bossTgt=parseInt(e.target.value)||5;ap(bossFg,bti);
-  const dayFg=div('form-group');
+  const typeSel=sel('',[{value:'daily',label:'📅 Daily — diulang tiap hari'},{value:'weekly',label:'🗓️ Weekly — target mingguan'},{value:'boss',label:'👑 Boss — tujuan besar'}],type);
+  typeSel.disabled=!!editing; // ganti jenis quest pasca-dibuat berisiko bikin data tidak konsisten (misal boss.cur vs done) — hapus & buat baru kalau perlu ganti jenis
+  typeSel.onchange=e=>{type=e.target.value;bossFg.style.display=type==='boss'?'block':'none';dayFg.style.display=type==='daily'?'block':'none';subFg.style.display=type==='boss'?'none':'block';periodFg.style.display=type==='daily'?'block':'none';};ap(fg3,typeSel);
+  if(editing)ap(fg3,el('small','','Jenis quest tidak bisa diubah. Hapus & buat baru kalau perlu ganti jenis.'));
+  const bossFg=div('form-group');bossFg.style.display=type==='boss'?'block':'none';ap(bossFg,el('label','','Berapa milestone?'));const bti=inp('',{type:'number',min:'2',value:String(bossTgt)});bti.oninput=e=>bossTgt=parseInt(e.target.value)||5;ap(bossFg,bti);
+  const dayFg=div('form-group');dayFg.style.display=type==='daily'?'block':'none';
   ap(dayFg,el('label','','Ulangi di hari (kosongkan = setiap hari)'));
   const dayPick=div('day-pick');
   DOW_LABELS.forEach((lbl,i)=>{
-    const db=btn('day-btn',lbl,function(){
+    const db=btn('day-btn'+(days.includes(i)?' active':''),lbl,function(){
       if(days.includes(i)){days=days.filter(x=>x!==i);this.classList.remove('active');}
       else{days.push(i);this.classList.add('active');}
     });
     dayPick.appendChild(db);
   });
   ap(dayFg,dayPick);
-  const subFg=div('form-group');
+  const periodFg=div('form-group');periodFg.style.display=type==='daily'?'block':'none';
+  ap(periodFg,el('label','','Waktu pengerjaan (opsional — biar terkelompok Pagi/Siang/Sore/Malam)'));
+  const periodSel=sel('',[{value:'',label:'— Kapan saja —'},...TIME_PERIODS.map(t=>({value:t.id,label:t.label}))],timePeriod||'');
+  periodSel.onchange=e=>timePeriod=e.target.value||null;
+  ap(periodFg,periodSel);
+  const subFg=div('form-group');subFg.style.display=type==='boss'?'none':'block';
   ap(subFg,el('label','','Ada berapa sub-tugas per hari? (misal ibadah 5x — kosongkan/1 kalau tidak ada)'));
-  const subi=inp('',{type:'number',min:'1',max:'20',value:'1',placeholder:'1'});
+  const subi=inp('',{type:'number',min:'1',max:'20',value:String(subCount),placeholder:'1'});
   subi.oninput=e=>subCount=Math.max(1,parseInt(e.target.value)||1);
+  subi.disabled=!!(editing&&editing.sub&&editing.subDone>0); // jangan ubah jumlah sub-tugas kalau sudah ada progres, biar tidak rancu
   ap(subFg,subi);
-  ap(subFg,el('small','','Reward akan dibagi rata ke tiap sub-tugas. Quest baru dianggap selesai penuh (dapat trofi & streak) setelah semua sub-tugas dicentang.'));
-  const fg4=div('form-group');ap(fg4,el('label','','Reward XP'));const xi=inp('',{type:'number',min:'10',value:'50'});xi.oninput=e=>xp=parseInt(e.target.value)||50;ap(fg4,xi);
-  const fg5=div('form-group');ap(fg5,el('label','','Reward Coin'));const ci=inp('',{type:'number',min:'0',value:'10'});ci.oninput=e=>coin=parseInt(e.target.value)||10;ap(fg5,ci);
+  if(!(editing&&editing.sub&&editing.subDone>0))ap(subFg,el('small','','Reward akan dibagi rata ke tiap sub-tugas. Quest baru dianggap selesai penuh (dapat trofi & streak) setelah semua sub-tugas dicentang.'));
+  const fg4=div('form-group');ap(fg4,el('label','','Reward XP'));const xi=inp('',{type:'number',min:'10',value:String(xp)});xi.oninput=e=>xp=parseInt(e.target.value)||50;ap(fg4,xi);
+  const fg5=div('form-group');ap(fg5,el('label','','Reward Coin'));const ci=inp('',{type:'number',min:'0',value:String(coin)});ci.oninput=e=>coin=parseInt(e.target.value)||10;ap(fg5,ci);
+  const fg6=div('form-group');ap(fg6,el('label','','Skala Prioritas (opsional — cuma buat yang penting saja)'));
+  const prioSel=sel('',[{value:'',label:'— Tidak ada —'},...PRIORITY_LEVELS.map(p=>({value:String(p.v),label:p.label}))],priority?String(priority):'');
+  prioSel.onchange=e=>priority=e.target.value?parseInt(e.target.value):null;
+  ap(fg6,prioSel);
   const actions=div('modal-actions');
-  ap(actions,btn('btn btn-secondary','Batal',()=>{APP.showModal=null;render();}),btn('btn btn-primary','Buat Quest',()=>{
+  ap(actions,btn('btn btn-secondary','Batal',()=>{APP.showModal=null;APP.editQuestId=null;render();}),btn('btn btn-primary',editing?'Simpan Perubahan':'Buat Quest',()=>{
     if(!title.trim())return;
-    const q={id:uid(),title:title.trim(),stat,type,xp,coin,done:false};
-    if(type==='boss')q.boss={cur:0,target:bossTgt};
-    if(type==='daily'&&days.length)q.days=days.slice();
-    if(type!=='boss'&&subCount>1){q.sub=subCount;q.subDone=0;}
-    APP.quests.push(q);saveQuests();APP.showModal=null;
-    pushToast('📜','Quest baru ditambahkan!',q.title);render();
+    if(editing){
+      editing.title=title.trim();editing.stat=stat;editing.xp=xp;editing.coin=coin;
+      editing.priority=priority;
+      if(type==='daily'){editing.days=days.length?days.slice():undefined;if(!days.length)delete editing.days;editing.timePeriod=timePeriod||undefined;if(!timePeriod)delete editing.timePeriod;}
+      if(type==='boss'&&editing.boss)editing.boss.target=bossTgt;
+      if(type!=='boss'&&!(editing.sub&&editing.subDone>0)){
+        if(subCount>1){editing.sub=subCount;if(editing.subDone==null)editing.subDone=0;}else{delete editing.sub;delete editing.subDone;}
+      }
+      saveQuests();APP.showModal=null;APP.editQuestId=null;
+      pushToast('✏️','Quest diperbarui!',editing.title);render();
+    } else {
+      const q={id:uid(),title:title.trim(),stat,type,xp,coin,done:false};
+      if(type==='boss')q.boss={cur:0,target:bossTgt};
+      if(type==='daily'&&days.length)q.days=days.slice();
+      if(type==='daily'&&timePeriod)q.timePeriod=timePeriod;
+      if(type!=='boss'&&subCount>1){q.sub=subCount;q.subDone=0;}
+      if(priority)q.priority=priority;
+      APP.quests.push(q);saveQuests();APP.showModal=null;
+      pushToast('📜','Quest baru ditambahkan!',q.title);render();
+    }
   }));
-  ap(box,fg1,fg2,fg3,bossFg,dayFg,subFg,fg4,fg5,actions);
-  overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;render();}};
+  ap(box,fg1,fg2,fg3,bossFg,dayFg,periodFg,subFg,fg4,fg5,fg6,actions);
+  overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;APP.editQuestId=null;render();}};
   ap(overlay,box);return overlay;
 }
 
@@ -2309,6 +2497,8 @@ function render(){
   if(APP.showModal==='addJourney')    root.appendChild(renderAddJourneyModal());
   if(APP.showModal==='financeInfo')   root.appendChild(renderFinanceInfoModal());
   if(APP.showModal==='buyCollectible') root.appendChild(renderBuyCollectibleModal());
+  if(APP.showModal==='sellInvest')    root.appendChild(renderSellInvestModal());
+  if(APP.showModal==='sellCollectible') root.appendChild(renderSellCollectibleModal());
 
   // toasts
   renderToasts();
