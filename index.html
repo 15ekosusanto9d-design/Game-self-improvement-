@@ -77,6 +77,9 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .quest-edit-btn:hover{opacity:1;}
 .priority-badge{font-size:9px;padding:1px 6px;border-radius:5px;font-weight:700;border:1px solid;flex-shrink:0;}
 .quest-time-hd{font-size:12px;color:var(--muted);font-weight:600;margin:10px 0 6px;padding-left:2px;}
+.progress-note-line{font-size:11px;color:var(--cyan-l);margin-top:4px;opacity:0.85;}
+.progress-note-history{max-height:220px;overflow-y:auto;margin-top:10px;display:flex;flex-direction:column;gap:5px;}
+.progress-note-hist-item{font-size:12px;color:var(--muted);background:rgba(0,0,0,0.18);padding:6px 9px;border-radius:7px;}
 .quest-del:hover{opacity:1;color:var(--danger);}
 .add-btn{width:100%;margin-top:10px;background:transparent;border:1.5px dashed var(--border);color:var(--muted);padding:11px;border-radius:10px;cursor:pointer;font-size:13px;transition:all 0.2s;font-family:'Inter',sans-serif;}
 .add-btn:hover{border-color:var(--cyan-l);color:var(--cyan-l);}
@@ -767,7 +770,7 @@ const APP={
   autoSyncInt:null,tradingInt:null,
   lastAction:null,  // {questId, ts, charSnap, prevQuestState} — undo untuk misklik, cuma tersimpan di memori (hilang saat refresh)
   deleteBossId:null,diagnosticResults:null,investPresetType:null,buyCollectibleType:null,
-  sellFinanceId:null,sellCollectibleId:null,
+  sellFinanceId:null,sellCollectibleId:null,progressNoteQuestId:null,showAllProgressNotes:false,
 };
 
 function lsLoad(){
@@ -1101,6 +1104,22 @@ function applyQuestReward(q,xpAmount,coinAmount,isFinal,isBossDone,ts){
   },100);
 }
 
+// ===== CATATAN PROGRES PER QUEST (opsional) =====
+// Untuk quest berjenjang (misal belajar bahasa/materi) yang progresnya suka kelewat kalau malas.
+// Cukup 1 catatan per hari per quest (kalau isi ulang di hari sama, catatan lama di hari itu diperbarui,
+// bukan numpuk jadi berkali-kali), dan dibatasi 100 entri terakhir biar tidak membengkak.
+function addQuestProgressNote(questId,noteText){
+  const q=APP.quests.find(x=>x.id===questId);
+  if(!q||!noteText||!noteText.trim())return;
+  if(!Array.isArray(q.progressNotes))q.progressNotes=[];
+  const today=todayStr();
+  const text=noteText.trim().slice(0,120);
+  const last=q.progressNotes[q.progressNotes.length-1];
+  if(last&&last.date===today){last.note=text;}
+  else{q.progressNotes.push({date:today,note:text});}
+  if(q.progressNotes.length>100)q.progressNotes.splice(0,q.progressNotes.length-100);
+  saveQuests();
+}
 function completeQuest(questId){
   const q=APP.quests.find(x=>x.id===questId);
   if(!q||q.done)return;
@@ -1359,12 +1378,22 @@ function renderQuestTab(){
     if(hasSub)ap(meta,span('quest-tag',(q.subDone||0)+'/'+q.sub+' selesai'));
     if(q.type==='daily'&&q.days&&q.days.length)ap(meta,span('quest-tag',q.days.slice().sort().map(d=>DOW_LABELS[d]).join('/')));
     ap(body,meta);
+    if(q.progressTrack){
+      const lastNote=Array.isArray(q.progressNotes)&&q.progressNotes.length?q.progressNotes[q.progressNotes.length-1]:null;
+      const pn=div('progress-note-line',lastNote?'📍 Terakhir ('+lastNote.date.slice(5)+'): '+lastNote.note:'📍 Belum ada catatan progres');
+      ap(body,pn);
+    }
     if(APP.lastAction&&APP.lastAction.questId===q.id){
       ap(body,btn('btn-undo','↺ Batalkan',()=>undoLastAction()));
     }
     const editBtn=btn('quest-edit-btn','✏️',()=>{APP.editQuestId=q.id;APP.showModal='addQuest';render();});
     const del=btn('quest-del','×',()=>{APP.quests=APP.quests.filter(x=>x.id!==q.id);saveQuests();render();});
-    ap(qc,chk,body,editBtn,del);
+    if(q.progressTrack){
+      const noteBtn=btn('quest-edit-btn','📝',()=>{APP.progressNoteQuestId=q.id;APP.showModal='progressNote';render();});
+      ap(qc,chk,body,noteBtn,editBtn,del);
+    } else {
+      ap(qc,chk,body,editBtn,del);
+    }
     return qc;
   };
   ['daily','weekly'].forEach(type=>{
@@ -1890,6 +1919,56 @@ function renderFinanceTab(){
   }
   return p;
 }
+function renderProgressNoteModal(){
+  const q=APP.quests.find(x=>x.id===APP.progressNoteQuestId);
+  if(!q){APP.showModal=null;return div('');}
+  if(!Array.isArray(q.progressNotes))q.progressNotes=[];
+  const overlay=div('modal-overlay');const box=div('modal-box');
+  ap(box,el('h3','','📝 Catatan Progres: '+q.title));
+  const today=todayStr();
+  const last=q.progressNotes.length?q.progressNotes[q.progressNotes.length-1]:null;
+  if(last){
+    const lastBox=div('refl-text');
+    lastBox.innerHTML='📍 <strong>Terakhir ('+last.date+')</strong><br>'+last.note;
+    lastBox.style.marginBottom='12px';
+    ap(box,lastBox);
+  } else {
+    ap(box,div('empty','Belum ada catatan. Isi progres pertamamu di bawah!'));
+  }
+  const fg=div('form-group');
+  ap(fg,el('label','',last&&last.date===today?'Update catatan hari ini':'Catatan progres hari ini'));
+  let noteText=last&&last.date===today?last.note:'';
+  const ta=inp('',{type:'text',placeholder:'Misal: Sampai Bab 3 - Present Tense',value:noteText,maxlength:'120'});
+  ta.oninput=e=>noteText=e.target.value;
+  ap(fg,ta);
+  ap(fg,el('small','','Maks 120 karakter. Isi ulang hari ini akan menimpa catatan hari ini (bukan numpuk).'));
+  ap(box,fg);
+  const actions=div('modal-actions');
+  ap(actions,btn('btn btn-secondary','Tutup',()=>{APP.showModal=null;APP.progressNoteQuestId=null;APP.showAllProgressNotes=false;render();}),
+    btn('btn btn-primary','Simpan',()=>{
+      if(!noteText.trim())return;
+      addQuestProgressNote(q.id,noteText);
+      pushToast('📝','Catatan disimpan!',noteText.trim().slice(0,60));
+      APP.showModal=null;APP.progressNoteQuestId=null;render();
+    }));
+  ap(box,actions);
+  if(q.progressNotes.length>1){
+    const toggleBtn=btn('btn-undo',APP.showAllProgressNotes?'▲ Sembunyikan Riwayat':'▼ Lihat Semua Catatan ('+q.progressNotes.length+')',()=>{
+      APP.showAllProgressNotes=!APP.showAllProgressNotes;render();
+    });
+    toggleBtn.style.marginTop='12px';toggleBtn.style.width='100%';
+    ap(box,toggleBtn);
+    if(APP.showAllProgressNotes){
+      const histWrap=div('progress-note-history');
+      [...q.progressNotes].reverse().forEach(n=>{
+        ap(histWrap,div('progress-note-hist-item','📅 '+n.date+' — '+n.note));
+      });
+      ap(box,histWrap);
+    }
+  }
+  overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;APP.progressNoteQuestId=null;APP.showAllProgressNotes=false;render();}};
+  ap(overlay,box);return overlay;
+}
 function renderSellInvestModal(){
   const h=APP.finance.find(x=>x.id===APP.sellFinanceId);
   if(!h){APP.showModal=null;return div('');}
@@ -2243,7 +2322,8 @@ function renderAddQuestModal(){
   let title=editing?editing.title:'',stat=editing?editing.stat:'body',type=editing?editing.type:'daily',
     xp=editing?editing.xp:10,coin=editing?editing.coin:10,bossTgt=editing&&editing.boss?editing.boss.target:5,
     days=editing&&editing.days?editing.days.slice():[],subCount=editing&&editing.sub?editing.sub:1,
-    priority=editing&&editing.priority?editing.priority:null,timePeriod=editing&&editing.timePeriod?editing.timePeriod:null;
+    priority=editing&&editing.priority?editing.priority:null,timePeriod=editing&&editing.timePeriod?editing.timePeriod:null,
+    progressTrack=editing?!!editing.progressTrack:false;
   const statDefaults={body:{xp:10,coin:10},mind:{xp:2,coin:4},career:{xp:2,coin:5},social:{xp:5,coin:10},discipline:{xp:15,coin:15}};
   const fg1=div('form-group');ap(fg1,el('label','','Nama Quest'));const ti=inp('',{placeholder:'Misal: Lari pagi 20 menit',type:'text',value:title});ti.oninput=e=>title=e.target.value;ap(fg1,ti);
   const fg2=div('form-group');ap(fg2,el('label','','Stat yang dilatih'));
@@ -2287,12 +2367,20 @@ function renderAddQuestModal(){
   const prioSel=sel('',[{value:'',label:'— Tidak ada —'},...PRIORITY_LEVELS.map(p=>({value:String(p.v),label:p.label}))],priority?String(priority):'');
   prioSel.onchange=e=>priority=e.target.value?parseInt(e.target.value):null;
   ap(fg6,prioSel);
+  const fg7=div('form-group');
+  const ptWrap=div('');ptWrap.style.display='flex';ptWrap.style.alignItems='center';ptWrap.style.gap='8px';
+  const ptChk=inp('',{type:'checkbox'});ptChk.style.width='auto';ptChk.checked=progressTrack;
+  ptChk.onchange=e=>progressTrack=e.target.checked;
+  const ptLabel=el('label','','Aktifkan Catatan Progres (cocok buat quest berjenjang, misal belajar materi/bab per bab)');
+  ptLabel.style.margin='0';ptLabel.style.fontSize='13px';
+  ap(ptWrap,ptChk,ptLabel);ap(fg7,ptWrap);
   const actions=div('modal-actions');
   ap(actions,btn('btn btn-secondary','Batal',()=>{APP.showModal=null;APP.editQuestId=null;render();}),btn('btn btn-primary',editing?'Simpan Perubahan':'Buat Quest',()=>{
     if(!title.trim())return;
     if(editing){
       editing.title=title.trim();editing.stat=stat;editing.xp=xp;editing.coin=coin;
       editing.priority=priority;
+      editing.progressTrack=progressTrack;
       if(type==='daily'){editing.days=days.length?days.slice():undefined;if(!days.length)delete editing.days;editing.timePeriod=timePeriod||undefined;if(!timePeriod)delete editing.timePeriod;}
       if(type==='boss'&&editing.boss)editing.boss.target=bossTgt;
       if(type!=='boss'&&!(editing.sub&&editing.subDone>0)){
@@ -2307,11 +2395,12 @@ function renderAddQuestModal(){
       if(type==='daily'&&timePeriod)q.timePeriod=timePeriod;
       if(type!=='boss'&&subCount>1){q.sub=subCount;q.subDone=0;}
       if(priority)q.priority=priority;
+      if(progressTrack)q.progressTrack=true;
       APP.quests.push(q);saveQuests();APP.showModal=null;
       pushToast('📜','Quest baru ditambahkan!',q.title);render();
     }
   }));
-  ap(box,fg1,fg2,fg3,bossFg,dayFg,periodFg,subFg,fg4,fg5,fg6,actions);
+  ap(box,fg1,fg2,fg3,bossFg,dayFg,periodFg,subFg,fg4,fg5,fg6,fg7,actions);
   overlay.onclick=e=>{if(e.target===overlay){APP.showModal=null;APP.editQuestId=null;render();}};
   ap(overlay,box);return overlay;
 }
@@ -2499,6 +2588,7 @@ function render(){
   if(APP.showModal==='buyCollectible') root.appendChild(renderBuyCollectibleModal());
   if(APP.showModal==='sellInvest')    root.appendChild(renderSellInvestModal());
   if(APP.showModal==='sellCollectible') root.appendChild(renderSellCollectibleModal());
+  if(APP.showModal==='progressNote')  root.appendChild(renderProgressNoteModal());
 
   // toasts
   renderToasts();
