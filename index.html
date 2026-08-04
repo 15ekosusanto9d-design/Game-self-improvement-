@@ -62,7 +62,7 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .tab-icon{font-size:18px;}
 /* QUEST */
 .quest-list{display:flex;flex-direction:column;gap:9px;}
-.quest-card{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.18);border:1px solid var(--border);border-radius:10px;padding:11px 12px;transition:all 0.2s;}
+.quest-card{display:flex;align-items:flex-start;gap:10px;background:rgba(0,0,0,0.18);border:1px solid var(--border);border-radius:10px;padding:11px 12px;transition:all 0.2s;}
 .quest-card.done{opacity:0.5;background:rgba(45,212,191,0.05);border-color:rgba(45,212,191,0.2);}
 .quest-check{width:28px;height:28px;border-radius:50%;border:2px solid var(--border-l);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:14px;background:transparent;transition:all 0.2s;-webkit-tap-highlight-color:transparent;}
 .quest-check.checked{background:var(--teal);border-color:var(--teal);color:#06111E;font-weight:700;}
@@ -104,6 +104,8 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .day-btn{flex:1;min-width:38px;background:var(--bg-d);border:1px solid var(--border);color:var(--muted);padding:8px 4px;border-radius:8px;cursor:pointer;font-size:11px;font-family:'Inter',sans-serif;-webkit-tap-highlight-color:transparent;}
 .day-btn.active{background:var(--cyan);border-color:var(--cyan);color:#06111E;font-weight:600;}
 .sub-check-wrap{display:flex;gap:4px;flex-wrap:wrap;align-items:center;max-width:120px;}
+.sub-check-wrap-full{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin:6px 0;}
+.sub-progress-badge{background:rgba(14,165,233,0.1);border-color:var(--cyan-l);color:var(--cyan-l);}
 .sub-dot{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);flex-shrink:0;transition:transform 0.12s,background 0.12s,border-color 0.12s;-webkit-tap-highlight-color:transparent;}
 .sub-dot.filled{background:var(--cyan);border-color:var(--cyan);color:#06111E;font-weight:700;transform:scale(1.05);}
 .btn-undo{background:rgba(14,165,233,0.14);border:1px solid var(--cyan);color:var(--cyan-l);font-size:12px;font-weight:600;padding:5px 12px;border-radius:6px;cursor:pointer;margin-top:6px;-webkit-tap-highlight-color:transparent;}
@@ -220,6 +222,8 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .reward-card.claimed{opacity:0.45;}
 .reward-name{font-size:13px;color:var(--text);}
 .reward-cost{font-size:10px;color:var(--amber);margin-top:2px;}
+.reward-cost.dividend-line{color:var(--teal);margin-top:3px;}
+.return-label{font-size:9px;color:var(--muted);margin-top:2px;}
 .reward-buy{background:var(--cyan);color:#06111E;border:none;padding:7px 11px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap;font-family:'Inter',sans-serif;}
 .reward-buy:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
 .reward-claimed{font-size:10px;color:var(--teal);flex-shrink:0;}
@@ -229,7 +233,7 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .rarity-badge.epic{background:rgba(167,139,250,0.18);color:var(--purple-l);}
 .rarity-badge.repeatable{background:rgba(52,211,153,0.15);color:var(--teal);}
 .rarity-badge.premium{background:rgba(196,181,253,0.18);color:#C4B5FD;}
-.finance-summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+.finance-summary-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
 .finance-summary-card{background:rgba(0,0,0,0.18);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;}
 .finance-summary-label{font-size:10px;color:var(--muted);margin-bottom:4px;}
 .finance-summary-val{font-size:14px;font-weight:700;color:var(--text);}
@@ -508,6 +512,7 @@ function updateFinanceDaily(){
         if(div>0){
           APP.char.coins+=div;
           APP.char.totalCoinsEarned=(APP.char.totalCoinsEarned||0)+div;
+          h.dividendsEarned=(h.dividendsEarned||0)+div;
           dividendLog.push({type:type.name,amount:div});
           charChanged=true;
         }
@@ -525,8 +530,12 @@ function updateFinanceDaily(){
 }
 function financeNetWorth(){
   const investVal=APP.finance.reduce((a,h)=>a+h.value,0);
+  const investPrincipal=APP.finance.reduce((a,h)=>a+h.principal,0);
+  const investDividends=APP.finance.reduce((a,h)=>a+(h.dividendsEarned||0),0);
   const collVal=(APP.collectibles||[]).reduce((a,h)=>a+collectibleMarketPrice(h.type),0);
-  return{cash:APP.char?APP.char.coins:0,investVal,collVal,total:(APP.char?APP.char.coins:0)+investVal+collVal};
+  const collCost=(APP.collectibles||[]).reduce((a,h)=>a+(h.totalCost||0),0);
+  const totalReturn=(investVal-investPrincipal)+investDividends+(collVal-collCost);
+  return{cash:APP.char?APP.char.coins:0,investVal,collVal,totalReturn,total:(APP.char?APP.char.coins:0)+investVal+collVal};
 }
 function investCoins(type,amount){
   amount=Math.floor(amount);
@@ -536,7 +545,7 @@ function investCoins(type,amount){
   saveChar();
   let h=APP.finance.find(x=>x.type===type);
   if(h){h.principal+=amount;h.value+=amount;}
-  else{h={id:uid(),type,principal:amount,value:amount,createdDate:todayStr(),lastUpdateDate:todayStr()};APP.finance.push(h);}
+  else{h={id:uid(),type,principal:amount,value:amount,createdDate:todayStr(),lastUpdateDate:todayStr(),dividendsEarned:0};APP.finance.push(h);}
   lsSetSync('finance',APP.finance);
   return true;
 }
@@ -553,8 +562,8 @@ function withdrawInvestment(id,amount){
   if(sellAmount>=h.value-0.01){
     APP.finance=APP.finance.filter(x=>x.id!==id);
   } else {
-    h.value-=sellAmount;
-    h.principal-=principalPortion;
+    h.value=Math.round((h.value-sellAmount)*100)/100;
+    h.principal=Math.round(h.principal-principalPortion);
   }
   lsSetSync('finance',APP.finance);
 }
@@ -602,7 +611,7 @@ function sellCollectible(id,qty){
     APP.collectibles=APP.collectibles.filter(x=>x.id!==id);
   } else {
     h.quantity-=sellQty;
-    h.totalCost-=costPortion;
+    h.totalCost=Math.round(h.totalCost-costPortion);
   }
   lsSetSync('collectibles',APP.collectibles);
 }
@@ -791,11 +800,12 @@ function lsLoad(){
   let journey=toArr(lsGet('journey'));
   let finance=toArr(lsGet('finance')).map(h=>{
     if(h&&h.type==='saham')h={...h,type:OLD_SAHAM_ALIAS}; // migrasi: 'saham' generik lama -> Saham Energi
+    if(h&&typeof h.dividendsEarned!=='number')h={...h,dividendsEarned:0};
     return h;
   }).filter(h=>h&&typeof h==='object'&&FINANCE_TYPES[h.type]);
   const finMerged={};
   finance.forEach(h=>{
-    if(finMerged[h.type]){finMerged[h.type].principal+=h.principal;finMerged[h.type].value+=h.value;}
+    if(finMerged[h.type]){finMerged[h.type].principal+=h.principal;finMerged[h.type].value+=h.value;finMerged[h.type].dividendsEarned=(finMerged[h.type].dividendsEarned||0)+(h.dividendsEarned||0);}
     else finMerged[h.type]={...h};
   });
   finance=Object.values(finMerged);
@@ -1354,13 +1364,10 @@ function renderQuestTab(){
     if(prio){qc.style.border='2px solid '+prio.color;qc.style.boxShadow='0 0 0 1px '+prio.color+'33 inset';}
     let chk;
     if(hasSub){
-      chk=div('sub-check-wrap');
       const subDone=q.subDone||0;
-      for(let i=0;i<q.sub;i++){
-        const dot=div('sub-dot'+(i<subDone?' filled':''),i<subDone?'✓':'');
-        if(i===subDone&&!q.done){dot.style.cursor='pointer';dot.onclick=function(e){e.stopPropagation();tickSubQuest(q.id);};}
-        chk.appendChild(dot);
-      }
+      chk=div('quest-check sub-progress-badge',subDone+'/'+q.sub);
+      chk.style.cursor='default';chk.style.fontSize='11px';chk.style.fontWeight='700';
+      if(q.done)chk.classList.add('checked');
     } else {
       chk=div('quest-check'+(q.done?' checked':''),q.done?'✓':'');chk.style.cursor='pointer';chk.style.minWidth='28px';
       if(!q.done){
@@ -1369,13 +1376,22 @@ function renderQuestTab(){
       }
     }
     const body=div('quest-body');
-    const titleRow=div('');titleRow.style.display='flex';titleRow.style.alignItems='center';titleRow.style.gap='6px';
+    const titleRow=div('');titleRow.style.display='flex';titleRow.style.alignItems='center';titleRow.style.gap='6px';titleRow.style.flexWrap='wrap';
     ap(titleRow,div('quest-title'+(q.done?' done':''),q.title));
     if(prio){const pb=span('priority-badge','P'+prio.v);pb.style.background=prio.color+'26';pb.style.color=prio.color;pb.style.borderColor=prio.color+'55';ap(titleRow,pb);}
     ap(body,titleRow);
+    if(hasSub){
+      const subRow=div('sub-check-wrap-full');
+      const subDone=q.subDone||0;
+      for(let i=0;i<q.sub;i++){
+        const dot=div('sub-dot'+(i<subDone?' filled':''),i<subDone?'✓':'');
+        if(i===subDone&&!q.done){dot.style.cursor='pointer';dot.onclick=function(e){e.stopPropagation();tickSubQuest(q.id);};}
+        subRow.appendChild(dot);
+      }
+      ap(body,subRow);
+    }
     const meta=div('quest-meta');
     ap(meta,span('quest-tag',s.emoji+' '+s.label),span('quest-reward','+'+q.xp+' XP • 🪙+'+q.coin));
-    if(hasSub)ap(meta,span('quest-tag',(q.subDone||0)+'/'+q.sub+' selesai'));
     if(q.type==='daily'&&q.days&&q.days.length)ap(meta,span('quest-tag',q.days.slice().sort().map(d=>DOW_LABELS[d]).join('/')));
     ap(body,meta);
     if(q.progressTrack){
@@ -1840,11 +1856,12 @@ function renderFinanceTab(){
   ap(p,div('section-title','💰 Simulasi Keuangan'));
   const nw=financeNetWorth();
   const sumGrid=div('finance-summary-grid');
-  const mkCard=(label,val)=>{const c=div('finance-summary-card');ap(c,div('finance-summary-label',label),div('finance-summary-val',val));return c;};
+  const mkCard=(label,val,isPositive)=>{const c=div('finance-summary-card');const vEl=div('finance-summary-val',val);if(isPositive!==undefined)vEl.style.color=isPositive?'var(--green)':'var(--danger)';ap(c,div('finance-summary-label',label),vEl);return c;};
   ap(sumGrid,
     mkCard('Total kekayaan','🪙 '+Math.round(nw.total).toLocaleString('id')),
     mkCard('Kas di tangan','🪙 '+Math.round(nw.cash).toLocaleString('id')),
-    mkCard('Investasi + Koleksi','🪙 '+Math.round(nw.investVal+nw.collVal).toLocaleString('id'))
+    mkCard('Investasi + Koleksi','🪙 '+Math.round(nw.investVal+nw.collVal).toLocaleString('id')),
+    mkCard('Total Return',(nw.totalReturn>=0?'+':'')+'🪙 '+Math.round(nw.totalReturn).toLocaleString('id'),nw.totalReturn>=0)
   );
   ap(p,sumGrid);
 
@@ -1859,15 +1876,24 @@ function renderFinanceTab(){
   } else {
     APP.finance.forEach(h=>{
       const t=FINANCE_TYPES[h.type];
-      const pct=h.principal>0?((h.value-h.principal)/h.principal*100):0;
+      const priceOnlyPct=h.principal>0?((h.value-h.principal)/h.principal*100):0;
+      const divEarned=h.dividendsEarned||0;
+      const totalReturnCoin=(h.value-h.principal)+divEarned;
+      const totalReturnPct=h.principal>0?(totalReturnCoin/h.principal*100):0;
       const rc=div('reward-card');rc.style.display='flex';rc.style.alignItems='center';rc.style.gap='10px';
       const iconEl=span('',t?t.icon:'💼');iconEl.style.fontSize='20px';iconEl.style.flexShrink='0';
       const infoEl=div('');infoEl.style.flex='1';infoEl.style.minWidth='0';
       const nameLabel=(t?t.name:h.type)+(t&&t.interval==='window'?' ⚡5mnt':'');
-      ap(infoEl,div('reward-name',nameLabel),div('reward-cost','Modal: 🪙'+h.principal+' → Nilai: 🪙'+Math.round(h.value)));
-      const pctEl=span('versus-delta '+(pct>=0?'up':'down'),(pct>=0?'+':'')+pct.toFixed(1)+'%');
-      pctEl.style.flexShrink='0';pctEl.style.marginBottom='0';pctEl.style.minWidth='58px';pctEl.style.textAlign='right';
-      ap(rc,iconEl,infoEl,pctEl);
+      ap(infoEl,div('reward-name',nameLabel),div('reward-cost','Modal: 🪙'+Math.round(h.principal)+' → Nilai: 🪙'+Math.round(h.value)));
+      if(t&&t.dividendRate>0){
+        ap(infoEl,div('reward-cost dividend-line','💵 Dividen diterima: 🪙+'+divEarned.toLocaleString('id')+' • Harga saja: '+(priceOnlyPct>=0?'+':'')+priceOnlyPct.toFixed(1)+'%'));
+      }
+      const pctWrap=div('');pctWrap.style.flexShrink='0';pctWrap.style.textAlign='right';pctWrap.style.minWidth='64px';
+      const pctEl=span('versus-delta '+(totalReturnPct>=0?'up':'down'),(totalReturnPct>=0?'+':'')+totalReturnPct.toFixed(1)+'%');
+      pctEl.style.marginBottom='0';pctEl.style.display='block';
+      const pctLabel=div('return-label','Return Total');
+      ap(pctWrap,pctEl,pctLabel);
+      ap(rc,iconEl,infoEl,pctWrap);
       const addBtn=btn('quick-add-btn','+',()=>{APP.investPresetType=h.type;APP.showModal='invest';render();});
       addBtn.title='Tambah dana ke '+(t?t.name:h.type);addBtn.style.flexShrink='0';ap(rc,addBtn);
       const sellBtn=btn('reward-buy','Jual',()=>{APP.sellFinanceId=h.id;APP.showModal='sellInvest';render();});
@@ -1906,7 +1932,7 @@ function renderFinanceTab(){
       const rc=div('reward-card');rc.style.display='flex';rc.style.alignItems='center';rc.style.gap='10px';
       const iconEl=span('',def?def.icon:'💎');iconEl.style.fontSize='20px';iconEl.style.flexShrink='0';
       const infoEl=div('');infoEl.style.flex='1';infoEl.style.minWidth='0';
-      ap(infoEl,div('reward-name',(def?def.name:h.type)+' × '+h.quantity),div('reward-cost','Modal: 🪙'+h.totalCost+' → Nilai: 🪙'+Math.round(curTotal).toLocaleString('id')));
+      ap(infoEl,div('reward-name',(def?def.name:h.type)+' × '+h.quantity),div('reward-cost','Modal: 🪙'+Math.round(h.totalCost)+' → Nilai: 🪙'+Math.round(curTotal).toLocaleString('id')));
       const pctEl=span('versus-delta '+(pct>=0?'up':'down'),(pct>=0?'+':'')+pct.toFixed(1)+'%');
       pctEl.style.flexShrink='0';pctEl.style.marginBottom='0';pctEl.style.minWidth='58px';pctEl.style.textAlign='right';
       ap(rc,iconEl,infoEl,pctEl);
