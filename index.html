@@ -219,11 +219,15 @@ body{background:radial-gradient(ellipse at top,#0D2137 0%,#0B1929 50%,#07111E 10
 .refl-save{margin-top:7px;background:var(--teal);color:#06111E;border:none;padding:9px 16px;border-radius:8px;font-size:13px;cursor:pointer;font-family:'Inter',sans-serif;font-weight:600;}
 /* REWARD */
 .reward-card{display:flex;align-items:center;gap:10px;background:rgba(0,0,0,0.18);border:1px solid var(--border);border-radius:10px;padding:11px 12px;margin-bottom:8px;}
+.debt-panel{border-color:var(--danger);}
+.debt-hint{font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.4;}
+.debt-card{background:rgba(248,113,113,0.06);}
 .reward-card.claimed{opacity:0.45;}
 .reward-name{font-size:13px;color:var(--text);}
 .reward-cost{font-size:10px;color:var(--amber);margin-top:2px;}
 .reward-cost.dividend-line{color:var(--teal);margin-top:3px;}
 .return-label{font-size:9px;color:var(--muted);margin-top:2px;}
+.return-note{font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.4;font-style:italic;}
 .reward-buy{background:var(--cyan);color:#06111E;border:none;padding:7px 11px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0;white-space:nowrap;font-family:'Inter',sans-serif;}
 .reward-buy:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
 .reward-claimed{font-size:10px;color:var(--teal);flex-shrink:0;}
@@ -534,8 +538,10 @@ function financeNetWorth(){
   const investDividends=APP.finance.reduce((a,h)=>a+(h.dividendsEarned||0),0);
   const collVal=(APP.collectibles||[]).reduce((a,h)=>a+collectibleMarketPrice(h.type),0);
   const collCost=(APP.collectibles||[]).reduce((a,h)=>a+(h.totalCost||0),0);
-  const totalReturn=(investVal-investPrincipal)+investDividends+(collVal-collCost);
-  return{cash:APP.char?APP.char.coins:0,investVal,collVal,totalReturn,total:(APP.char?APP.char.coins:0)+investVal+collVal};
+  const unrealized=(investVal-investPrincipal)+investDividends+(collVal-collCost);
+  const realized=(APP.char&&APP.char.realizedReturn)||0;
+  const totalReturn=unrealized+realized; // lifetime: yang sudah direalisasi (dijual) + yang masih terbuka saat ini
+  return{cash:APP.char?APP.char.coins:0,investVal,collVal,totalReturn,unrealized,realized,total:(APP.char?APP.char.coins:0)+investVal+collVal};
 }
 function investCoins(type,amount){
   amount=Math.floor(amount);
@@ -554,16 +560,24 @@ function withdrawInvestment(id,amount){
   if(!h)return;
   const sellAmount=amount==null?h.value:Math.min(amount,h.value);
   if(sellAmount<=0)return;
-  const frac=sellAmount/h.value;
+  const frac=Math.min(1,sellAmount/h.value);
   const principalPortion=h.principal*frac;
+  const divPortion=(h.dividendsEarned||0)*frac;
   APP.char.coins+=Math.round(sellAmount);
   APP.char.totalCoinsEarned=(APP.char.totalCoinsEarned||0)+Math.max(0,Math.round(sellAmount)-principalPortion);
+  // Catat untung/rugi yang SUDAH direalisasi (permanen di karakter) — supaya Total Return
+  // tetap mencerminkan hasil investasi lama walau holding-nya sudah dijual & hilang dari daftar.
+  APP.char.realizedReturn=(APP.char.realizedReturn||0)+(sellAmount-principalPortion)+divPortion;
   saveChar();
-  if(sellAmount>=h.value-0.01){
+  // Toleransi 1 koin (bukan 0.01) — karena tampilan/input selalu dibulatkan ke bilangan bulat,
+  // toleransi yang kelewat ketat bikin sisa recehan (misal 0.3 koin) nyangkut jadi "kartu hantu"
+  // yang tidak pernah hilang meski niatnya jual semua.
+  if(sellAmount>=h.value-1){
     APP.finance=APP.finance.filter(x=>x.id!==id);
   } else {
     h.value=Math.round((h.value-sellAmount)*100)/100;
     h.principal=Math.round(h.principal-principalPortion);
+    h.dividendsEarned=Math.round((h.dividendsEarned||0)-divPortion);
   }
   lsSetSync('finance',APP.finance);
 }
@@ -606,6 +620,7 @@ function sellCollectible(id,qty){
   const costPortion=h.totalCost*(sellQty/h.quantity);
   APP.char.coins+=total;
   APP.char.totalCoinsEarned=(APP.char.totalCoinsEarned||0)+Math.max(0,total-costPortion);
+  APP.char.realizedReturn=(APP.char.realizedReturn||0)+(total-costPortion);
   saveChar();
   if(sellQty>=h.quantity){
     APP.collectibles=APP.collectibles.filter(x=>x.id!==id);
@@ -683,7 +698,7 @@ function lsGet(k,fb=null){try{const v=localStorage.getItem(LS+k);return v?JSON.p
 function lsSet(k,v){try{localStorage.setItem(LS+k,JSON.stringify(v));}catch(e){}}
 function lsDel(k){try{localStorage.removeItem(LS+k);}catch(e){}}
 
-const SYNC_KEYS=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey','rivals','finance','collectibles'];
+const SYNC_KEYS=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey','rivals','finance','collectibles','quest_debts'];
 const PENDING='liferpg_pending';
 function markPending(k){try{const p=JSON.parse(localStorage.getItem(PENDING)||'[]');if(!p.includes(k))p.push(k);localStorage.setItem(PENDING,JSON.stringify(p));}catch(e){}}
 function getPending(){try{return JSON.parse(localStorage.getItem(PENDING)||'[]');}catch(e){return[];}}
@@ -719,7 +734,7 @@ function defaultChar(){return{name:'Petualang',stats:{body:0,mind:0,career:0,soc
   subTicksTotal:0,weeklyQuestsDone:0,dowCompleted:[false,false,false,false,false,false,false],
   comebackCount:0,eventsSeen:[],todayQuestCount:0,todayQuestDate:null,maxQuestsInDay:0,randomFreezeClaimedDate:null,
   dailyMilestoneDate:null,dailyMilestonesClaimed:[],
-  gems:0,streakMilestonesSeen:[]};}
+  gems:0,streakMilestonesSeen:[],realizedReturn:0};}
 function defaultQuests(){return[
   {id:uid(),title:'Minum air putih 8 gelas',stat:'body',type:'daily',xp:50,coin:10,done:false},
   {id:uid(),title:'Baca buku 15 menit',stat:'mind',type:'daily',xp:50,coin:10,done:false},
@@ -768,7 +783,7 @@ function updateRivals(rivals,playerXP){
 // ===== STEP 3: APP STATE =====
 const APP={
   char:null,quests:[],badges:[],xpLog:[],rewards:[],reflections:[],
-  achievEvs:[],journey:[],rivals:[],finance:[],collectibles:[],
+  achievEvs:[],journey:[],rivals:[],finance:[],collectibles:[],questDebts:[],
   tab:'quests',syncStatus:'idle',
   toasts:[],toastTimer:null,
   visStats:['body','mind','career','social','discipline'],
@@ -824,6 +839,7 @@ function lsLoad(){
     else collMerged[h.type]={...h};
   });
   collectibles=Object.values(collMerged);
+  let questDebts=toArr(lsGet('quest_debts')).filter(d=>d&&typeof d==='object'&&d.id&&d.questId);
   let rivals=lsGet('rivals');
   const playerXP=totalXP(char.stats);
   const band=rivalBand(playerXP);
@@ -872,6 +888,7 @@ function lsLoad(){
   if(char.dailyMilestoneDate===undefined)char.dailyMilestoneDate=null;
   if(!Array.isArray(char.dailyMilestonesClaimed))char.dailyMilestonesClaimed=[];
   if(typeof char.gems!=='number')char.gems=0;
+  if(typeof char.realizedReturn!=='number')char.realizedReturn=0;
   if(!Array.isArray(char.streakMilestonesSeen))char.streakMilestonesSeen=[];
   if(char.questsCompletedTotal!=null&&char.questsDone==null)char.questsDone=char.questsCompletedTotal;
   // migrate quests field names
@@ -883,13 +900,13 @@ function lsLoad(){
   });
   // migrate xpLog field names
   xpLog=xpLog.filter(e=>e&&typeof e==='object').map(e=>{if(e.statType&&!e.stat)e.stat=e.statType;return e;});
-  Object.assign(APP,{char,quests,badges,xpLog,rewards,reflections,achievEvs,journey,rivals,finance,collectibles});
+  Object.assign(APP,{char,quests,badges,xpLog,rewards,reflections,achievEvs,journey,rivals,finance,collectibles,questDebts});
   return noLocal;
  }catch(err){
   // Kalau ada data lama yang benar-benar rusak dan tak terduga, jangan biarkan seluruh app macet.
   // Reset ke kondisi default yang aman supaya app tetap bisa dipakai.
   console.error('lsLoad gagal, reset ke default:',err);
-  Object.assign(APP,{char:defaultChar(),quests:defaultQuests(),badges:[],xpLog:[],rewards:[],reflections:[],achievEvs:[],journey:[],rivals:initRivals(),finance:[],collectibles:[]});
+  Object.assign(APP,{char:defaultChar(),quests:defaultQuests(),badges:[],xpLog:[],rewards:[],reflections:[],achievEvs:[],journey:[],rivals:initRivals(),finance:[],collectibles:[],questDebts:[]});
   return true;
  }
 }
@@ -984,7 +1001,7 @@ function undoLastAction(){
 // maupun quest bertahap/sub-tugas (tickSubQuest). isFinal menandai apakah ini penyelesaian
 // penuh (quest biasa selesai / sub-tugas terakhir) — hanya saat itu questsDone, streak-milestone,
 // dan pengecekan trofi/achievement dijalankan, supaya trofi tidak "kebobolan" di tengah progres.
-function applyQuestReward(q,xpAmount,coinAmount,isFinal,isBossDone,ts){
+function applyQuestReward(q,xpAmount,coinAmount,isFinal,isBossDone,ts,skipStreak){
   ts=ts||Date.now();
   const today=todayStr();
   const c=APP.char;
@@ -1005,8 +1022,10 @@ function applyQuestReward(q,xpAmount,coinAmount,isFinal,isBossDone,ts){
   const newOvLv=xpToLevel(newTXP).level;
   const newAvStage=avatarStage(newOvLv);
 
+  // Bayar hutang quest TIDAK memperbaiki streak (streak murni soal konsistensi hari itu juga) —
+  // skipStreak=true membuat baris ini dilewati.
   let newStreak=c.streak||0;
-  if(c.lastStreakDate!==today){newStreak=(c.streak||0)+1;}
+  if(!skipStreak&&c.lastStreakDate!==today){newStreak=(c.streak||0)+1;}
 
   const todayStats=new Set((APP.xpLog||[]).filter(e=>e.date===today).map(e=>e.stat));
   todayStats.add(q.stat);
@@ -1015,9 +1034,11 @@ function applyQuestReward(q,xpAmount,coinAmount,isFinal,isBossDone,ts){
   c.stats[q.stat]=newStatXP;
   c.coins+=finalCoin;
   c.totalCoinsEarned=(c.totalCoinsEarned||0)+finalCoin;
-  c.streak=newStreak;
+  if(!skipStreak){
+    c.streak=newStreak;
+    c.lastStreakDate=today;
+  }
   c.lastActive=today;
-  c.lastStreakDate=today;
   if(isFinal){
     c.questsDone=(c.questsDone||0)+1;
     if(isBossDone)c.bossesCompleted=(c.bossesCompleted||0)+1;
@@ -1178,9 +1199,25 @@ function checkDailyReset(){
   if(c.lastWeekKey&&c.lastWeekKey!==wk){
     APP.quests.forEach(q=>{if(q.type==='weekly'){q.done=false;if(q.sub&&q.sub>1)q.subDone=0;}});
     saveQuests();
+    // Hutang quest (P1-P4 yang kelewat) ikut hangus begitu masuk minggu baru — tidak menumpuk selamanya.
+    if(APP.questDebts&&APP.questDebts.length){APP.questDebts=[];lsSetSync('quest_debts',APP.questDebts);}
   }
   c.lastWeekKey=wk;
   if(lastActive&&lastActive!==today){
+    // Catat HUTANG untuk daily quest berprioritas P1-P4 yang belum selesai kemarin (lastActive),
+    // sebelum statusnya direset — supaya masih bisa "dibayar" nanti dalam minggu yang sama.
+    // Quest tanpa prioritas atau P5 sengaja TIDAK dihitung (sesuai permintaan).
+    const lastActiveDow=new Date(lastActive+'T00:00:00Z').getUTCDay();
+    if(!Array.isArray(APP.questDebts))APP.questDebts=[];
+    APP.quests.forEach(q=>{
+      if(q.type==='daily'&&!q.done&&q.priority&&q.priority>=1&&q.priority<=4){
+        const scheduledThatDay=!q.days||!q.days.length||q.days.includes(lastActiveDow);
+        if(scheduledThatDay){
+          APP.questDebts.push({id:uid(),questId:q.id,title:q.title,stat:q.stat,xp:q.xp,coin:q.coin,priority:q.priority,missedDate:lastActive});
+        }
+      }
+    });
+    lsSetSync('quest_debts',APP.questDebts);
     // Reset daily quests (mutate in-place agar referensi eksternal ikut terupdate)
     APP.quests.forEach(q=>{if(q.type==='daily'){q.done=false;q.completedToday=false;if(q.sub&&q.sub>1)q.subDone=0;}});
     // Streak-break/freeze pakai lastStreakDate (hari terakhir beneran nyelesain quest),
@@ -1199,7 +1236,30 @@ function checkDailyReset(){
   } else if(!lastActive){
     c.lastActive=today;saveChar();
   }
+  // Pengaman terakhir: pastikan HANYA hutang minggu berjalan yang tersisa, apapun urutan
+  // eksekusi di atas atau seberapa jauh lompatan harinya (misal app baru dibuka lagi setelah
+  // lebih dari seminggu) — supaya tidak ada hutang lama yang lolos tidak terhapus.
+  if(APP.questDebts&&APP.questDebts.length){
+    const curWk=weekKeyWIB(today);
+    const filtered=APP.questDebts.filter(d=>weekKeyWIB(d.missedDate)===curWk);
+    if(filtered.length!==APP.questDebts.length){
+      APP.questDebts=filtered;
+      lsSetSync('quest_debts',APP.questDebts);
+    }
+  }
   cleanAchievEvs();
+}
+// Bayar hutang quest: dapat XP+koin penuh seperti menyelesaikan quest biasa, TAPI streak
+// TIDAK ikut diperbaiki (skipStreak=true) — sesuai permintaan, karena streak murni soal
+// konsistensi hari itu juga, sedangkan hutang ini soal menuntaskan yang tertunda.
+function payQuestDebt(debtId){
+  const debt=APP.questDebts.find(d=>d.id===debtId);
+  if(!debt)return;
+  const fakeQ={stat:debt.stat};
+  applyQuestReward(fakeQ,debt.xp,debt.coin,true,false,Date.now(),true);
+  APP.questDebts=APP.questDebts.filter(d=>d.id!==debtId);
+  lsSetSync('quest_debts',APP.questDebts);
+  pushToast('✅','Hutang Terbayar!',debt.title+' — +'+debt.xp+' XP • 🪙+'+debt.coin);
 }
 </script>
 <script>
@@ -1353,6 +1413,27 @@ function renderQuestTab(){
       ap(p,bc,rowActions);
     });
     f.appendChild(p);
+  }
+  // hutang quest (P1-P4 yang kelewat, cuma tampil kalau ada)
+  if(APP.questDebts&&APP.questDebts.length){
+    const dp=div('panel debt-panel');
+    ap(dp,div('section-title','🔴 Hutang Minggu Ini'));
+    ap(dp,div('debt-hint','Quest prioritas yang kelewat kemarin — selesaikan sebelum minggu ini berakhir (Minggu 24.00 WIB), atau hangus.'));
+    [...APP.questDebts].sort((a,b)=>a.priority-b.priority).forEach(debt=>{
+      const prio=priorityInfo(debt.priority);
+      const dc=div('reward-card debt-card');dc.style.display='flex';dc.style.alignItems='center';dc.style.gap='10px';
+      if(prio)dc.style.borderLeft='3px solid '+prio.color;
+      const infoEl=div('');infoEl.style.flex='1';infoEl.style.minWidth='0';
+      const nameRow=div('');nameRow.style.display='flex';nameRow.style.alignItems='center';nameRow.style.gap='6px';nameRow.style.flexWrap='wrap';
+      ap(nameRow,div('reward-name',debt.title));
+      if(prio){const pb=span('priority-badge','P'+prio.v);pb.style.background=prio.color+'26';pb.style.color=prio.color;pb.style.borderColor=prio.color+'55';ap(nameRow,pb);}
+      ap(infoEl,nameRow,div('reward-cost','Kelewat: '+debt.missedDate+' • +'+debt.xp+' XP • 🪙+'+debt.coin));
+      ap(dc,infoEl);
+      const payBtn=btn('reward-buy','Selesaikan',()=>{payQuestDebt(debt.id);render();});
+      payBtn.style.flexShrink='0';ap(dc,payBtn);
+      dp.appendChild(dc);
+    });
+    f.appendChild(dp);
   }
   // daily & weekly
   const p=div('panel');
@@ -1864,6 +1945,8 @@ function renderFinanceTab(){
     mkCard('Total Return',(nw.totalReturn>=0?'+':'')+'🪙 '+Math.round(nw.totalReturn).toLocaleString('id'),nw.totalReturn>=0)
   );
   ap(p,sumGrid);
+  const returnNote=div('return-note','💡 Total Return = akumulasi SELAMANYA (termasuk yang sudah kamu jual) + posisi yang masih terbuka sekarang.');
+  ap(p,returnNote);
 
   const portfolioHd=div('q-section-hd');
   portfolioHd.style.display='flex';portfolioHd.style.alignItems='center';portfolioHd.style.gap='6px';portfolioHd.style.justifyContent='space-between';
@@ -2180,6 +2263,9 @@ function runDiagnostics(){
     if(!isFinite(r.totalXP))issues.push({level:'error',msg:'Rival '+(r.name||r.id)+' totalXP rusak.'});
   });
   if(APP.badges.length!==new Set(APP.badges).size)issues.push({level:'warning',msg:'Ada trofi tersimpan dobel (duplikat).'});
+  (APP.finance||[]).forEach(h=>{
+    if(h.value>0&&h.value<1&&h.principal<=0)issues.push({level:'warning',msg:'Ada sisa investasi kecil (🪙'+h.value.toFixed(2)+') yang nyangkut dari penjualan sebelumnya — kartu ini bisa dibersihkan.'});
+  });
   return issues;
 }
 // Perbaiki yang aman untuk diperbaiki otomatis (tidak menghapus progres nyata, cuma
@@ -2194,6 +2280,15 @@ function autoFixIssues(){
     if(typeof c.coins!=='number'||!isFinite(c.coins)||c.coins<0)c.coins=Math.max(0,Number(c.coins)||0);
     if(typeof c.gems!=='number'||!isFinite(c.gems)||c.gems<0)c.gems=Math.max(0,Number(c.gems)||0);
     if(typeof c.streak!=='number'||!isFinite(c.streak)||c.streak<0)c.streak=0;
+    // Bersihkan kartu investasi "hantu" (sisa recehan dari bug pembulatan jual-penuh lama) —
+    // sisa nilainya dikembalikan ke kas dulu supaya tidak ada koin yang hilang.
+    (APP.finance||[]).forEach(h=>{
+      if(h.value>0&&h.value<1&&h.principal<=0){
+        c.coins+=Math.round(h.value);
+        c.realizedReturn=(c.realizedReturn||0)+h.value;
+        h.value=0;
+      }
+    });
     saveChar();
   }
   APP.quests=APP.quests.filter(q=>q&&typeof q==='object'&&q.id);
@@ -2203,7 +2298,7 @@ function autoFixIssues(){
     if(!STATS[q.stat])q.stat='discipline';
   });
   saveQuests();
-  APP.finance=(APP.finance||[]).filter(h=>isFinite(h.value)&&h.value>=0);
+  APP.finance=(APP.finance||[]).filter(h=>isFinite(h.value)&&h.value>=1);
   lsSetSync('finance',APP.finance);
   APP.badges=[...new Set(APP.badges)];
   saveBadges();
@@ -2250,7 +2345,7 @@ function renderBackupTab(){
   ap(ec,ap(el('h4','','📥 Download Backup')));
   ap(ec,div('','Unduh semua datamu ke file .json. Simpan di Google Drive atau folder HP sebagai cadangan.'));
   ap(ec,btn('bk-btn export','⬇️ Download Backup (.json)',()=>{
-    const keys=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey','rivals','finance','collectibles'];
+    const keys=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey','rivals','finance','collectibles','quest_debts'];
     const data={};keys.forEach(k=>{data[k]=lsGet(k);});data._at=new Date().toISOString();
     const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob);const a=document.createElement('a');
@@ -2268,7 +2363,7 @@ function renderBackupTab(){
     reader.onload=ev=>{
       try{
         const data=JSON.parse(ev.target.result);if(!data.character)throw new Error('invalid');
-        const keys=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey','rivals','finance','collectibles'];
+        const keys=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey','rivals','finance','collectibles','quest_debts'];
         keys.forEach(k=>{if(data[k]!=null){lsSet(k,data[k]);markPending(k);}});
         lsLoad();render();pushToast('✅','Data berhasil dipulihkan!','Semua progres kembali.',true);
       }catch(err){pushToast('❌','File tidak valid','Coba file backup yang lain.');}
@@ -2494,7 +2589,7 @@ function renderDeleteModal(){
   const cancelB=btn('btn btn-secondary','Batal',()=>{APP.showModal=null;render();});
   const confirmB=btn('bk-btn del','✅ Ya, Hapus Semua',async()=>{
     if(di.value!=='HAPUS')return;
-    const SYNC_KEYS2=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey','rivals','finance','collectibles'];
+    const SYNC_KEYS2=['character','quests','badges','xp_log','rewards','reflections','achiev_events','journey','rivals','finance','collectibles','quest_debts'];
     SYNC_KEYS2.forEach(k=>lsDel(k));localStorage.removeItem(PENDING);
     await clearSheets();
     // Reset APP state ke default
